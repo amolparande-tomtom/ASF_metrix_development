@@ -1,13 +1,15 @@
 # encoding: utf-8
+import datetime
 
 from flask_restx import Resource
 
 from src.asf_service import mnr_operations, vad_operations
 from src.asf_service.Commons.Utility import Utility
 from src.asf_service.Commons.api import api
+from src.asf_service.Commons.mnrserver import MnrServer
 from src.asf_service.asf_class_functions import AsfProcess
 from src.asf_service.controller.input import input_parser
-from src.asf_service.controller.input.input_parser import file_upload_request_parameters
+from src.asf_service.controller.input.input_parser import parser
 
 ns = api.namespace('', description='Operations related to Sample')
 
@@ -20,25 +22,25 @@ class SampleController(Resource):
     def __init__(self, api=None, *args, **kwargs):
         super().__init__(api, *args, **kwargs)
 
-    @api.expect(file_upload_request_parameters, validate=True)
+    @api.expect(parser, validate=True)
     def post(self):
         """
         Get ASF Metrics
         """
-        request_parameter = input_parser.file_upload_request_parameters.parse_args()
-        mnr_url = request_parameter['mnr_db_url']
-        vad_url = request_parameter['vad_db_url']
+        request_parameter = input_parser.parser.parse_args()
+        mnr_url = MnrServer.__getitem__(request_parameter['mnr_db_url']).value
+        mnr_schema = request_parameter['mnr_schema']
+        vad_schema = request_parameter['vad_schema']
         input_path = request_parameter['input_path']
         output_path = request_parameter['output_path']
-        mnr_filename = request_parameter['mnr_filename']
-        mnr_schema = request_parameter['mnr_schema']
-        vad_filename = request_parameter['vad_filename']
-        vad_schema = request_parameter['vad_schema']
         language_codes = request_parameter['language_codes']
+        vad_url = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+        mnr_filename = "MNR_Output_" + str(datetime.datetime.now())
+        vad_filename = "VAD_Output_" + str(datetime.datetime.now())
 
         self.process_start(input_path, output_path, mnr_filename, vad_filename,
                            mnr_url, mnr_schema, vad_url, vad_schema, language_codes)
-        return mnr_url
+        return "Processing done"
 
     @staticmethod
     def process_start(input_path, output_path, output_mnr_filename, output_vad_filename,
