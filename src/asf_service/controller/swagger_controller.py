@@ -3,7 +3,6 @@ import datetime
 import os
 
 from flask_restx import Resource
-
 from src.asf_service import mnr_operations, vad_operations
 from src.asf_service.Commons.Utility import Utility
 from src.asf_service.Commons.api import api
@@ -47,10 +46,6 @@ class SampleController(Resource):
                            mnr_url, mnr_schema, vad_url, vad_schema, language_codes)
         if os.path.exists(input_path):
             os.remove(input_path)
-        if os.path.exists(output_path + mnr_filename):
-            os.remove(output_path + mnr_filename)
-        if os.path.exists(output_path + vad_filename):
-            os.remove(output_path + vad_filename)
         return "Processing done"
 
     @staticmethod

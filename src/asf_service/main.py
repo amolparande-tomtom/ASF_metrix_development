@@ -1,4 +1,4 @@
-from flask import Blueprint, Flask
+from flask import Flask, Blueprint
 
 from src.asf_service.Commons.api import api
 from src.asf_service.controller.swagger_controller import ns

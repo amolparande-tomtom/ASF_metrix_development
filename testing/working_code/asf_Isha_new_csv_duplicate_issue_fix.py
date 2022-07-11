@@ -328,7 +328,7 @@ VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=g
 
 # schema
 MNR_schema_name = 'lam_mea_oce_sea'
-VAD_schema_name = 'sam_bra_20220521_cw20'
+VAD_schema_name = 'sam_bra_20220702_cw26'
 
 if __name__ == '__main__':
     csv_gdb = create_points_from_input_csv(inputcsv)
