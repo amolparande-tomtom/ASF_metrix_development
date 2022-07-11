@@ -1,4 +1,4 @@
-from src.asf_service.asf_class_functions import AsfMnrProcess as asf
+from src.asf_service.asf_class_functions import AsfMnrProcess as asf, AsfMnrProcess
 
 if __name__ == '__main__':
     mnr_db_url = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
@@ -13,10 +13,13 @@ if __name__ == '__main__':
     country_language_code = ['nl', 'de', 'fr']
 
 
-    csv_gdb = asf.create_points_from_input_csv(csv_path)
 
-    asf.main_mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, db_url, mnr_schema_name, filename, outputpath)
 
+    asf_cls = AsfMnrProcess(mnr_db_url, vad_db_url, csv_path, mnr_schema_name,
+                            vad_schema_name,outputpath, mnr_filename, vad_filename, country_language_code)
+    asf_cls. csv_gdb = asf.create_points_from_input_csv()
+
+    asf_cls.mnr_csv_buffer_db_apt_fuzzy_matching()
 
 
 

@@ -1,18 +1,16 @@
 import os
-
 import pandas as pd
 import geopandas as gpd
 import psycopg2
 from shapely.geometry import Point
 from thefuzz import fuzz
-
 from src.asf_service import mnr_details
 
 
 class AsfMnrProcess:
     def __init__(self, mnr_db_url, vad_db_url, csv_path, mnr_schema_name, vad_schema_name,
                  outputpath, mnr_filename, vad_filename, language_code):
-        self.vad_db_url = mnr_db_url
+        self.mnr_db_url = mnr_db_url
         self.vad_db_url = vad_db_url
         self.csv_path = csv_path
         self.outputpath = outputpath
@@ -184,7 +182,7 @@ class AsfMnrProcess:
                 print("VAD empty SR_ID", schema_data.SRID)
             if not schema_data.empty:
                 print("VAD_SRID:", schema_data.SRID, "Done Processing for MNR" + r.searched_query)
-                self.vad_parse_schema_data(schema_data, add_header, outputpath, filename)
+                self.vad_parse_schema_data(schema_data, add_header, outputpath, vad_filename)
                 # if (schema_data.housenumber != 0 and schema_data.streetname != 'NODATA' and schema_data.postalcode != 0 and schema_data.placename != 'NODATA'):
 
     def vad_query_for_one_record(self, vad_db_url, r, vad_schema_name, language_code):
