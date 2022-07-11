@@ -1,4 +1,4 @@
-import gpd as gpd
+import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 

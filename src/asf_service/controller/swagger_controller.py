@@ -15,7 +15,7 @@ ns = api.namespace('', description='Operations related to Sample')
 
 
 @ns.route('/')
-@api.response(204, 'Done.')
+@api.response(200, 'Done.')
 @api.response(400, 'Invalid.')
 class SampleController(Resource):
 
@@ -31,8 +31,8 @@ class SampleController(Resource):
         mnr_url = MnrServer.__getitem__(request_parameter['mnr_db_url']).value
         mnr_schema = request_parameter['mnr_schema']
         vad_schema = request_parameter['vad_schema']
-        input_path = request_parameter['input_path']
-        output_path = request_parameter['output_path']
+        input_path = request_parameter['input_file_path']
+        output_path = request_parameter['output_directory_path']
         language_codes = request_parameter['language_codes']
         vad_url = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
         mnr_filename = "MNR_Output_" + str(datetime.datetime.now())

@@ -16,4 +16,4 @@ parser.add_argument('mnr_schema', required=True, help='Enter your mnr schema nam
 parser.add_argument('vad_schema', required=True, help='Enter your vad schema name')
 parser.add_argument('input_file_path', required=True, help='Enter your input file Path')
 parser.add_argument('output_directory_path', required=True, help='Enter your output directory Path')
-parser.add_argument('language_codes', help='Enter languages', required=True)
+parser.add_argument('language_codes', type="Array", help='Enter languages', required=True)
