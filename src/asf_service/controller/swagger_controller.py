@@ -1,8 +1,11 @@
 # encoding: utf-8
 import datetime
 import os
+import zipfile
 
+from flask import send_file
 from flask_restx import Resource
+
 from src.asf_service import mnr_operations, vad_operations
 from src.asf_service.Commons.Utility import Utility
 from src.asf_service.Commons.api import api
@@ -39,14 +42,29 @@ class SampleController(Resource):
 
         mnr_filename = "MNR_Output_" + str(datetime.datetime.now())
         vad_filename = "VAD_Output_" + str(datetime.datetime.now())
-        output_path = "../"
+        output_path = "../output/"
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
         vad_url = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 
         self.process_start(input_path, output_path, mnr_filename, vad_filename,
                            mnr_url, mnr_schema, vad_url, vad_schema, language_codes)
+        self.convert_to_zip(output_path)
+
         if os.path.exists(input_path):
             os.remove(input_path)
-        return "Processing done"
+        if os.path.exists(output_path):
+            os.removedirs(output_path)
+
+        return send_file('../output.zip', as_attachment=True, attachment_filename='OutputFile')
+
+    def convert_to_zip(self, output_path):
+        zf = zipfile.ZipFile("../output.zip", "w")
+        for dirname, subdirs, files in os.walk(output_path):
+            zf.write(dirname)
+            for filename in files:
+                zf.write(os.path.join(dirname, filename))
+        zf.close()
 
     @staticmethod
     def process_start(input_path, output_path, output_mnr_filename, output_vad_filename,
