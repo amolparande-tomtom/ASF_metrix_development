@@ -1,5 +1,6 @@
 # encoding: utf-8
 import datetime
+import os
 
 from flask_restx import Resource
 
@@ -31,15 +32,25 @@ class SampleController(Resource):
         mnr_url = MnrServer.__getitem__(request_parameter['mnr_db_url']).value
         mnr_schema = request_parameter['mnr_schema']
         vad_schema = request_parameter['vad_schema']
-        input_path = request_parameter['input_file_path']
-        output_path = request_parameter['output_directory_path']
         language_codes = request_parameter['language_codes']
-        vad_url = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+
+        input_file = request_parameter['input_file_path']
+        input_path = "../" + input_file.filename
+        saved_file = input_file.save(input_path)
+
         mnr_filename = "MNR_Output_" + str(datetime.datetime.now())
         vad_filename = "VAD_Output_" + str(datetime.datetime.now())
+        output_path = "../"
+        vad_url = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 
         self.process_start(input_path, output_path, mnr_filename, vad_filename,
                            mnr_url, mnr_schema, vad_url, vad_schema, language_codes)
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        if os.path.exists(output_path + mnr_filename):
+            os.remove(output_path + mnr_filename)
+        if os.path.exists(output_path + vad_filename):
+            os.remove(output_path + vad_filename)
         return "Processing done"
 
     @staticmethod
