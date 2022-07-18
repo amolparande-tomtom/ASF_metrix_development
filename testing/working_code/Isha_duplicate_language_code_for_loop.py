@@ -315,10 +315,10 @@ def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
 
 
 # Input CSV
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/2_SQL_Error/BRA_test_2.csv'
-outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/BEL/'
-mnrfilename = 'MNR_ASF_output_BEL_NL.csv'
-vad_filename = 'VAD_ASF_output_BEL_NL.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/3_USA/USA.csv'
+outputpath = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/3_USA/'
+mnrfilename = 'MNR_ASF_output_USA_en.csv'
+vad_filename = 'VAD_ASF_output_USA_en.csv'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
@@ -331,16 +331,16 @@ VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=g
 # mnr_sql = Buffer_ST_DWithin_mnr_osm_intersect_sql
 
 # schema
-MNR_schema_name = 'lam_mea_oce_sea'
-VAD_schema_name = 'sam_bra_20220702_cw26'
+MNR_schema_name = 'nam'
+VAD_schema_name = 'nam_usa_20220702_cw26'
 
-country_language_code = ['pt']
+country_language_code = ['en']
 
 if __name__ == '__main__':
     csv_gdb = create_points_from_input_csv(inputcsv)
     # MNR calling
-    mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
+    mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
                                          mnrfilename)
     # VAD calling
-    for i in country_language_code:
-        vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
+    # for i in country_language_code:
+    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)

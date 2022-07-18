@@ -51,10 +51,10 @@ class SampleController(Resource):
                            mnr_url, mnr_schema, vad_url, vad_schema, language_codes)
         self.convert_to_zip(output_path)
 
-        if os.path.exists(input_path):
-            os.remove(input_path)
-        if os.path.exists(output_path):
-            os.removedirs(output_path)
+        # if os.path.exists(input_path):
+        #     os.remove(input_path)
+        # if os.path.exists(output_path):
+        #     os.removedirs(output_path)
 
         return send_file('../output.zip', as_attachment=True, attachment_filename='OutputFile')
 
@@ -69,10 +69,13 @@ class SampleController(Resource):
     @staticmethod
     def process_start(input_path, output_path, output_mnr_filename, output_vad_filename,
                       mnr_db_url, mnr_schema, vad_db_url, vad_schema, language_codes):
+        # PostgresSQL Database calling Function
         asf_cls = AsfProcess(mnr_db_url, vad_db_url)
+        # DB connection MNR
         mnr_db_conn = asf_cls.postgres_db_connection(mnr_db_url)
+        # DB connection VAD
         vad_db_conn = asf_cls.postgres_db_connection(vad_db_url)
-
+        # create Point GeoDataFrame from input CSV
         csv_gdf = Utility.create_points_from_input_csv(input_path)
         # process mnr data
         mnr_operations.mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, mnr_schema, output_path, output_mnr_filename,
