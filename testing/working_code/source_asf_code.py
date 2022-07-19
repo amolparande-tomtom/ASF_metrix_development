@@ -12,9 +12,9 @@ Buffer_ST_DWithin_mnr_osm_intersect_sql = """
                                         place_name ,
                                         postal_code                
                                         from
-                                        "{schema_name}".deu_source          
+                                        "{schema_name}"."{table_name}"          
                                         where                 
-                                        ST_DWithin("{schema_name}".deu_source.geom, ST_GeomFromText('{point_geometry}',4326), {Buffer_in_Meter})
+                                        ST_DWithin("{schema_name}"."{table_name}".geom, ST_GeomFromText('{point_geometry}',4326), {Buffer_in_Meter})
                                         """
 
 def postgres_db_connection(db_url):
@@ -44,8 +44,7 @@ def create_points_from_input_csv(csv_path):
     return gpd.GeoDataFrame(df, crs="EPSG:4326")
 
 
-
-def source_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpath, filename):
+def source_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpath, filename, table_name):
     """
 
     :param csv_gdf:
@@ -63,7 +62,7 @@ def source_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, output
         # add_header = True
         # if i != 0:
         #     add_header = False
-        schema_data = mnr_query_for_one_record(db_url, r, schema_name)
+        schema_data = mnr_query_for_one_record(db_url, r, schema_name, table_name)
 
         # Fizzy Matching logic
         schema_data['hnr_match'] = 0
@@ -98,12 +97,12 @@ def source_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, output
             mnr_parse_schema_data(add_header, schema_data, outputpath, filename)
 
 
-def mnr_query_for_one_record(db_url, r, schema_name):
+def mnr_query_for_one_record(db_url, r, schema_name, table_name):
     buffer = r.provider_distance_source * 0.00001
 
     new_mnr_osm_intersect_sql = Buffer_ST_DWithin_mnr_osm_intersect_sql.replace("{point_geometry}", str(r.geometry)) \
         .replace("{schema_name}", schema_name) \
-        .replace("{Buffer_in_Meter}", str(buffer))
+        .replace("{Buffer_in_Meter}", str(buffer)).replace("{table_name}", table_name)
     schema_data = pd.read_sql_query(new_mnr_osm_intersect_sql, postgres_db_connection(db_url))
     schema_data['searched_query'] = r.searched_query
     schema_data['geometry'] = r.geometry
@@ -155,8 +154,9 @@ inputcsv = '/Users/parande/Documents/5_APT_source_mnr_delta_service/2_Germany/0_
 sourceDB_C = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 schema_name = "public"
 outputpath = '/Users/parande/Documents/5_APT_source_mnr_delta_service/2_Germany/2_output/'
+table_name = 'deu_source'
 filename = "source_check_DUE.csv"
 
 csv_gdb = create_points_from_input_csv(inputcsv)
 
-source_csv_buffer_db_apt_fuzzy_matching(csv_gdb, schema_name, sourceDB_C, outputpath, filename)
+source_csv_buffer_db_apt_fuzzy_matching(csv_gdb, schema_name, sourceDB_C, outputpath, filename, table_name)

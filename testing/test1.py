@@ -15,6 +15,5 @@ engine = create_engine('postgresql://postgres:postgres@localhost:5433/asf')
 
 # DataFream to Posgres
 
-
 # if_exists : {'fail', 'replace', 'append'}
 apt_source.to_sql('asf_apt', engine, if_exists='append')
