@@ -14,6 +14,5 @@ apt_source.rename(columns={'HouseNumber': 'hsn', 'StreetName': 'street_name',
 engine = create_engine('postgresql://postgres:postgres@localhost:5433/asf')
 
 # DataFream to Posgres
-
 # if_exists : {'fail', 'replace', 'append'}
 apt_source.to_sql('asf_apt', engine, if_exists='append')
