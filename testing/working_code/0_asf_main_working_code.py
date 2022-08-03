@@ -4,6 +4,7 @@ import pandas as pd
 from shapely.geometry import Point
 import geopandas as gpd
 from thefuzz import fuzz
+from sqlalchemy import create_engine
 
 # MNR SQL Query
 Buffer_ST_DWithin_mnr_osm_intersect_sql = """
@@ -70,8 +71,8 @@ Buffer_ST_DWithin_VAD_intersect_sql = """
                                         ST_DWithin("{schema_name_vad}".planet_osm_point.way, 
                                         ST_GeomFromText('{point_geometry}',4326), {Buffer_in_Meter})
                                      """
-
-
+# writing DB
+engine = create_engine('postgresql://postgres:postgres@localhost:5433/postgres')
 # Postgres Database connection
 
 def postgres_db_connection(db_url):
@@ -153,12 +154,14 @@ def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpat
             empty_data = [pd.DataFrame(r).transpose()]
             print("MNR empty SR_ID", schema_data.SRID)
             emptyDataFrame = pd.concat(empty_data)
-            if add_header:
-                emptyDataFrame.to_csv(outputpath + 'Failed'+filename, mode='w', index=False)
-                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
-            else:
-                emptyDataFrame.to_csv(outputpath + 'Failed'+ filename, mode='a', header=False, index=False)
-                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
+            emptyDataFrame = emptyDataFrame.drop(['geometry'], axis=1)
+            emptyDataFrame.to_sql('MISSING_MNR_ASF', engine, if_exists='append')
+            # if add_header:
+            #     emptyDataFrame.to_csv(outputpath + 'Failed'+filename, mode='w', index=False)
+            #     emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
+            # else:
+            #     emptyDataFrame.to_csv(outputpath + 'Failed'+ filename, mode='a', header=False, index=False)
+            #     emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
 
 
         # Writing CSV MNR function
@@ -272,13 +275,15 @@ def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outpu
             # Data Empty
             empty_data = [pd.DataFrame(r).transpose()]
             emptyDataFrame = pd.concat(empty_data)
-            if add_header:
-                emptyDataFrame.to_csv(outputpath + 'VAD_Failed' + filename, mode='w', index=False)
-                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
-            else:
-                emptyDataFrame.to_csv(outputpath + 'VAD_Failed' + filename, mode='a', header=False, index=False)
-                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
-            print("VAD empty SR_ID", schema_data.SRID)
+            emptyDataFrame = emptyDataFrame.drop(['geometry'], axis=1)
+            emptyDataFrame.to_sql('MISSING_VAD_ASF', engine, if_exists='append')
+            # if add_header:
+            #     emptyDataFrame.to_csv(outputpath + 'VAD_Failed' + filename, mode='w', index=False)
+            #     emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
+            # else:
+            #     emptyDataFrame.to_csv(outputpath + 'VAD_Failed' + filename, mode='a', header=False, index=False)
+            #     emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
+            # print("VAD empty SR_ID", schema_data.SRID)
 
         if not schema_data.empty:
             print("VAD_SRID:", schema_data.SRID, "Done Processing for MNR" + r.searched_query)
@@ -367,6 +372,7 @@ VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=g
 
 # SQL Query
 # mnr_sql = Buffer_ST_DWithin_mnr_osm_intersect_sql
+# Postgres Connection to be written
 
 # schema
 MNR_schema_name = 'eur_cas'
