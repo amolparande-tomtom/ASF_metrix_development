@@ -115,7 +115,7 @@ def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpat
     """
     for i, r in csv_gdf.iterrows():
         add_header = True
-        if os.path.exists(outputpath + filename):
+        if os.path.exists(outputpath + filename) :
             add_header = False
         # add_header = True
         # if i != 0:
@@ -146,11 +146,24 @@ def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpat
         schema_data['postal_code'] = schema_data['postal_code'].fillna(0)
         schema_data['place_name'] = schema_data['place_name'].fillna('NODATA')
 
-        # Writing CSV MNR function
+
+
         if schema_data.empty:
+            # Data Empty
+            empty_data = [pd.DataFrame(r).transpose()]
             print("MNR empty SR_ID", schema_data.SRID)
+            emptyDataFrame = pd.concat(empty_data)
+            if add_header:
+                emptyDataFrame.to_csv(outputpath + 'Failed'+filename, mode='w', index=False)
+                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
+            else:
+                emptyDataFrame.to_csv(outputpath + 'Failed'+ filename, mode='a', header=False, index=False)
+                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
+
+
+        # Writing CSV MNR function
         if not schema_data.empty:
-            print("MNR_SRID:", schema_data.SRID, "Done Processing for MNR" + r.searched_query)
+            # print("MNR_SRID:", schema_data.SRID, "Done Processing for MNR" + r.searched_query)
             # Writing
             mnr_parse_schema_data(add_header, schema_data, outputpath, filename)
 
@@ -218,6 +231,9 @@ def mnr_parse_schema_data(add_header, schema_data, outputpath, filename):
                 new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
 
 
+
+
+
 def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outputpath, filename, language_code):
     for i, r in csv_gdf.iterrows():
         add_header = True
@@ -251,9 +267,19 @@ def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outpu
         schema_data['postalcode'] = schema_data['postalcode'].fillna(0)
         schema_data['placename'] = schema_data['placename'].fillna('NODATA')
 
-        # Writing csv
+        # Writing csv Empty ASF
         if schema_data.empty:
+            # Data Empty
+            empty_data = [pd.DataFrame(r).transpose()]
+            emptyDataFrame = pd.concat(empty_data)
+            if add_header:
+                emptyDataFrame.to_csv(outputpath + 'VAD_Failed' + filename, mode='w', index=False)
+                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
+            else:
+                emptyDataFrame.to_csv(outputpath + 'VAD_Failed' + filename, mode='a', header=False, index=False)
+                emptyDataFrame.drop(emptyDataFrame.index, inplace=True)
             print("VAD empty SR_ID", schema_data.SRID)
+
         if not schema_data.empty:
             print("VAD_SRID:", schema_data.SRID, "Done Processing for MNR" + r.searched_query)
             vad_parse_schema_data(schema_data, add_header, outputpath, filename)
@@ -310,7 +336,6 @@ def vad_calculate_fuzzy_values(r, schema_data):
         schema_data.loc[n, 'Percentage'] = ((schema_data['Stats_Result'][n]) * 10)
 
 
-
 def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
     group_max = schema_data.groupby('SRID')['Percentage'].max()
     pd_group_max = pd.DataFrame(group_max)
@@ -328,10 +353,10 @@ def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
                 print("##############Printed DATA######################")
 
 # Input CSV
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/1_BEL/postal_issue.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/1_BEL/BEL_ASF_logs.csv'
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/BEL/Postal_fix/'
-mnrfilename = 'New_MNR_ASF_output_BEL.csv'
-vad_filename = 'New_VAD_ASF_output_BEL.csv'
+mnrfilename = 'MNR_BEL_ASF_logs.csv'
+vad_filename = 'VAD_BEL_ASF_logs.csv'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
