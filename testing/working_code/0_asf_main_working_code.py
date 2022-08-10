@@ -362,7 +362,7 @@ def vad_parse_schema_data_max(outputpath, vad_filename):
 
     for i in SRID:
         add_header = True
-        if os.path.exists(outputpath + "New_" + vad_filename):
+        if os.path.exists(outputpath + vad_filename):
             add_header = False
         mx_apt_delta_new = mx_apt_delta_merge.loc[mx_apt_delta_merge['SRID'] == i]
         if mx_apt_delta_new['Percentage'].value_counts().values.max() > 1:
@@ -373,20 +373,20 @@ def vad_parse_schema_data_max(outputpath, vad_filename):
             # distance_mx_apt_delta.to_sql('VAD_ASF_Log', engine, if_exists='append')
             # distance_mx_apt_delta.to_csv(outputpath + filename, mode='a', index=False)
             if add_header:
-                distance_mx_apt_delta.to_csv(outputpath + "New_" + vad_filename, mode='w', index=False)
+                distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
                 add_header = False
             else:
-                distance_mx_apt_delta.to_csv(outputpath + "New_" + vad_filename, mode='a', header=False, index=False)
+                distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
         else:
             # Writing to Postgres
             # schema_data = schema_data.drop(['geometry'], axis=1)
             # mx_apt_delta_new.to_sql('VAD_ASF_Log', engine, if_exists='append')
             # mx_apt_delta_new.to_csv(outputpath + filename, mode='a', index=False)
             if add_header:
-                mx_apt_delta_new.to_csv(outputpath + "New_" + vad_filename, mode='w', index=False)
+                mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
                 add_header = False
             else:
-                mx_apt_delta_new.to_csv(outputpath + "New_" + vad_filename, mode='a', header=False, index=False)
+                mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
 
 
 # Input CSV
@@ -415,10 +415,12 @@ country_language_code = ['nl', 'fr', 'de']
 if __name__ == '__main__':
     csv_gdb = create_points_from_input_csv(inputcsv)
     # MNR calling
-    mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
-                                         mnrfilename)
+    # mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
+    #                                      mnrfilename)
     # VAD calling
-    for i in country_language_code:
-        vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
+    # for i in country_language_code:
+    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
     # VAD MAX
     vad_parse_schema_data_max(outputpath, vad_filename)
+    # Remove old VAD File
+    os.remove(outputpath + vad_filename)
