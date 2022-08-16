@@ -55,6 +55,7 @@ Buffer_ST_DWithin_mnr_osm_intersect_sql = """
 
                                             """
 
+
 # VAD SQL Query
 Buffer_ST_DWithin_VAD_intersect_sql = """
                                         select 
@@ -71,7 +72,17 @@ Buffer_ST_DWithin_VAD_intersect_sql = """
                                         ST_DWithin("{schema_name_vad}".planet_osm_point.way, 
                                         ST_GeomFromText('{point_geometry}',4326), {Buffer_in_Meter})
                                      """
-# writing DB
+
+
+# Local Postgres VAD SQL for MAX
+
+
+VAD_sql = """
+                SELECT * FROM public."{vad_table}"     
+          """
+
+
+# Local DB connection
 engine = create_engine('postgresql://postgres:postgres@localhost:5433/postgres')
 
 
@@ -209,30 +220,54 @@ def mnr_calculate_fuzzy_values(r, schema_data):
         schema_data.loc[n, 'Percentage'] = ((schema_data['Stats_Result'][n]) * 10)
 
 
+# def mnr_parse_schema_data_old(add_header, schema_data, outputpath, filename):
+#     for indx, row in schema_data.iterrows():
+#         if row.hsn != 0 or row.street_name != 'NODATA' or row.postal_code != 0 or row.place_name != 'NODATA':
+#             new_df = pd.DataFrame(row).transpose()
+#             if add_header:
+#                 new_df.to_csv(outputpath + filename, mode='w', index=False)
+#                 add_header = False
+#             else:
+#                 new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
+
 def mnr_parse_schema_data(add_header, schema_data, outputpath, filename):
     group_max = schema_data.groupby('SRID')['Percentage'].max()
     pd_group_max = pd.DataFrame(group_max)
     mx_apt_delta = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage'])
     # Check group has more than one values then take minimum distance
-    if mx_apt_delta['Percentage'].value_counts().values.max() != 1:
+    if mx_apt_delta['Percentage'].value_counts().values.max() > 1:
         min_distance = mx_apt_delta['distance'].min()
         distance_mx_apt_delta = mx_apt_delta.loc[mx_apt_delta['distance'] == min_distance]
-        if add_header:
-            distance_mx_apt_delta.to_csv(outputpath + filename, mode='w', index=False)
-            add_header = False
+        # get First Values
+        if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
+            distance_mx_apt_delta = distance_mx_apt_delta.head(1)
+            # Writing to Postgres
+            distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
+            distance_mx_apt_delta.to_sql(filename, engine, if_exists='append')
         else:
-            distance_mx_apt_delta.to_csv(outputpath + filename, mode='a', header=False, index=False)
+            # Writing to Postgres
+            distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
+            distance_mx_apt_delta.to_sql(filename, engine, if_exists='append')
+        # if add_header:
+        #     distance_mx_apt_delta.to_csv(outputpath + filename, mode='w', index=False)
+        #     add_header = False
+        # else:
+        #     distance_mx_apt_delta.to_csv(outputpath + filename, mode='a', header=False, index=False)
 
     else:
         for indx, row in mx_apt_delta.iterrows():
             if row.hsn != 0 or row.street_name != 'NODATA' or row.postal_code != 0 or row.place_name != 'NODATA':
                 new_df = pd.DataFrame(row).transpose()
 
-                if add_header:
-                    new_df.to_csv(outputpath + filename, mode='w', index=False)
-                    add_header = False
-                else:
-                    new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
+                # Writing to Postgres
+                new_df = new_df.drop(['geometry'], axis=1)
+                new_df.to_sql(filename, engine, if_exists='append')
+
+                # if add_header:
+                #     new_df.to_csv(outputpath + filename, mode='w', index=False)
+                #     add_header = False
+                # else:
+                #     new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
 
 
 def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outputpath, filename, language_code):
@@ -275,13 +310,9 @@ def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outpu
             print("Data Empty")
 
         if not schema_data.empty:
-            print("VAD_SRID:", schema_data.SRID)
+            # print("VAD_SRID:", schema_data.SRID)
 
             # Writing to the Postgres
-
-            # vad_parse_schema_data(schema_data, add_header, outputpath, filename)
-            # schema_data = schema_data.drop(['geometry'], axis=1)
-            # schema_data.to_sql('BEL_VAD_ASF_Log', engine, if_exists='append')
 
             # Writing CSV
             vad_parse_schema_data(schema_data, add_header, outputpath, filename)
@@ -289,8 +320,8 @@ def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outpu
 
 def vad_query_for_one_record(db_url, r, vad_schema_name, language_code):
     buffer = r.provider_distance_orbis * 0.00001
-    print("SR_ID:", r.SR_ID, "language_code:", language_code, "provider_distance_orbis:", r.provider_distance_orbis,
-          "And", buffer)
+    # print("SR_ID:", r.SR_ID, "language_code:", language_code, "provider_distance_orbis:", r.provider_distance_orbis,
+    #       "And", buffer)
     # print("Geometry:", r.geometry)
     new_VAD_intersect_sql = Buffer_ST_DWithin_VAD_intersect_sql.replace("{point_geometry}", str(r.geometry)) \
         .replace("{schema_name_vad}", vad_schema_name) \
@@ -341,59 +372,96 @@ def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
     for indx, row in schema_data.iterrows():
         if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
             new_df = pd.DataFrame(row).transpose()
-            if add_header:
-                new_df.to_csv(outputpath + filename, mode='w', index=False)
-                print("##############Printed DATA######################")
-                add_header = False
-            else:
-                new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
-                print("##############Printed DATA######################")
+            # Writing to Postgres
+            new_df = new_df.drop(['geometry'], axis=1)
+            new_df.to_sql(filename, engine, if_exists='append')
+            # Writing to CSV
+            # if add_header:
+            #     new_df.to_csv(outputpath + filename, mode='w', index=False)
+            #     print("##############Printed DATA######################")
+            #     add_header = False
+            # else:
+            #     new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
+            #     print("##############Printed DATA######################")
+
+        else:
+            print(row.SRID, "Blank rows")
 
 
-def vad_parse_schema_data_max(outputpath, vad_filename):
-    file = os.path.join(outputpath, vad_filename)
-    schema_data = pd.read_csv(file, encoding="utf-8")
+# def vad_parse_schema_data_csv_max(outputpath, vad_filename):
+#     file = os.path.join(outputpath, vad_filename)
+#     schema_data = pd.read_csv(file, encoding="utf-8")
+#
+#     group_max = schema_data.groupby('SRID')['Percentage'].max()
+#     pd_group_max = pd.DataFrame(group_max)
+#     mx_apt_delta_merge = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage']).sort_values('SRID')
+#     SRID = list(mx_apt_delta_merge["SRID"].unique())
+#
+#     for i in SRID:
+#         add_header = True
+#         if os.path.exists(outputpath + vad_filename):
+#             add_header = False
+#         mx_apt_delta_new = mx_apt_delta_merge.loc[mx_apt_delta_merge['SRID'] == i]
+#
+#         if mx_apt_delta_new['Percentage'].value_counts().values.max() > 1:
+#             min_distance = mx_apt_delta_new['distance'].min()
+#             distance_mx_apt_delta = mx_apt_delta_new.loc[mx_apt_delta_new['distance'] == min_distance]
+#             # get First Values
+#             if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
+#                 distance_mx_apt_delta = distance_mx_apt_delta.head(1)
+#                 # Writing to Postgres
+#                 distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
+#                 distance_mx_apt_delta.to_sql('BEL_VAD_ASF_Log', engine, if_exists='append')
+#             else:
+#                 # Writing to Postgres
+#                 distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
+#                 distance_mx_apt_delta.to_sql('BEL_VAD_ASF_Log', engine, if_exists='append')
+#             # CSV Writing
+#             # if add_header:
+#             #     distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
+#             #     add_header = False
+#             # else:
+#             #     distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
+#         else:
+#             # Writing to Postgres
+#             mx_apt_delta_new = mx_apt_delta_new.drop(['geometry'], axis=1)
+#             mx_apt_delta_new.to_sql('BEL_VAD_ASF_Log', engine, if_exists='append')
+#             # CSV Writing
+#             # if add_header:
+#             #     mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
+#             #     add_header = False
+#             # else:
+#             #     mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
 
+
+# Input CSV
+
+def vad_parse_schema_data_postgres_max(pg_connection, vad_table):
+    vad_table_sql = VAD_sql.replace("{vad_table}", vad_table)
+    schema_data = pd.read_sql(vad_table_sql, con=pg_connection)
     group_max = schema_data.groupby('SRID')['Percentage'].max()
     pd_group_max = pd.DataFrame(group_max)
     mx_apt_delta_merge = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage']).sort_values('SRID')
-
     SRID = list(mx_apt_delta_merge["SRID"].unique())
 
     for i in SRID:
-        add_header = True
-        if os.path.exists(outputpath + vad_filename):
-            add_header = False
         mx_apt_delta_new = mx_apt_delta_merge.loc[mx_apt_delta_merge['SRID'] == i]
         if mx_apt_delta_new['Percentage'].value_counts().values.max() > 1:
             min_distance = mx_apt_delta_new['distance'].min()
             distance_mx_apt_delta = mx_apt_delta_new.loc[mx_apt_delta_new['distance'] == min_distance]
-            # Writing to Postgres
-            # schema_data = schema_data.drop(['geometry'], axis=1)
-            # distance_mx_apt_delta.to_sql('VAD_ASF_Log', engine, if_exists='append')
-            # distance_mx_apt_delta.to_csv(outputpath + filename, mode='a', index=False)
-            if add_header:
-                distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
-                add_header = False
+            # get First Values
+            if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
+                distance_mx_apt_delta = distance_mx_apt_delta.head(1)
+                # Writing to Postgres
+                distance_mx_apt_delta.to_sql('MAX_BEL_VAD_ASF_Log', engine, if_exists='append')
             else:
-                distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
+                # Writing to Postgres
+                distance_mx_apt_delta.to_sql('MAX_BEL_VAD_ASF_Log', engine, if_exists='append')
+
         else:
             # Writing to Postgres
-            # schema_data = schema_data.drop(['geometry'], axis=1)
-            # mx_apt_delta_new.to_sql('VAD_ASF_Log', engine, if_exists='append')
-            # mx_apt_delta_new.to_csv(outputpath + filename, mode='a', index=False)
-            if add_header:
-                mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
-                add_header = False
-            else:
-                mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
+            mx_apt_delta_new.to_sql('MAX_BEL_VAD_ASF_Log', engine, if_exists='append')
 
-
-# Input CSV
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/1_BEL/BEL_ASF_logs.csv'
-outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/BEL/Postal_fix/'
-mnrfilename = 'MNR_MAX.csv'
-vad_filename = 'VAD_MAX.csv'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
@@ -412,15 +480,19 @@ VAD_schema_name = 'eur_bel_20220702_cw26'
 
 country_language_code = ['nl', 'fr', 'de']
 
+# INPUT
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/1_BEL/BEL_ASF_logs.csv'
+outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/BEL/Postal_fix/'
+mnrfilename = 'BEL_MNR_ASF_Log'
+vad_filename = 'BEL_VAD_ASF_Log'
+
 if __name__ == '__main__':
     csv_gdb = create_points_from_input_csv(inputcsv)
     # MNR calling
-    # mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
-    #                                      mnrfilename)
+    mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
+                                         mnrfilename)
     # VAD calling
-    # for i in country_language_code:
-    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
+    for i in country_language_code:
+        vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
     # VAD MAX
-    vad_parse_schema_data_max(outputpath, vad_filename)
-    # Remove old VAD File
-    os.remove(outputpath + vad_filename)
+    vad_parse_schema_data_postgres_max(engine,vad_filename)

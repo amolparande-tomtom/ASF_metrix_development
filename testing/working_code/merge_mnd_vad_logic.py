@@ -2,23 +2,24 @@ import sys
 
 import psycopg2
 import pandas as pd
+from sqlalchemy import create_engine
 
 URL = "postgresql://localhost/postgres?user=postgres&password=postgres&port=5433"
 
 'postgresql://postgres:postgres@localhost:5433/postgres'
 
+# writing DB
+engine = create_engine('postgresql://postgres:postgres@localhost:5433/postgres')
 # MNR SQL
 MNR_sql = """
         SELECT * FROM public."BEL_MNR_ASF_Log"
 
          """
-
 # VAD SQL
 VAD_sql = """
-        SELECT * FROM public."BEL_VAD_ASF_Log"
+        SELECT * FROM public."MAX_BEL_VAD_ASF_Log"
 
         """
-
 
 def postgres_db_connection(db_url):
     """
@@ -56,10 +57,14 @@ df_vad_schema = vad_schema.drop(columns=['vad_hnr_match', 'vad_street_name_match
 df_vad_schema['SRID'] = df_vad_schema['vad_SRID']
 
 
-mnr_vad_merge = pd.merge(df_mnr_schema, df_vad_schema, on=['SRID'])
+mnr_vad_merge = pd.merge(df_mnr_schema, df_vad_schema, on='SRID', how='inner')
+
+# Writing to Postgres
+
+mnr_vad_merge.to_sql('merge_BEL_VAD_ASF', engine, if_exists='append')
 
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/BEL/Postal_fix/'
-
+#
 mnr_vad_merge.to_csv(outputpath + "Merge_MNR_VAD.csv", mode='w', index=False)
-df_mnr_schema.to_csv(outputpath + "df_mnr_schema.csv", mode='w', index=False)
-df_vad_schema.to_csv(outputpath + "df_vad_schema.csv", mode='w', index=False)
+# df_mnr_schema.to_csv(outputpath + "df_mnr_schema.csv", mode='w', index=False)
+# df_vad_schema.to_csv(outputpath + "df_vad_schema.csv", mode='w', index=False)
