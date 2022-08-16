@@ -453,15 +453,58 @@ def vad_parse_schema_data_postgres_max(pg_connection, vad_table):
             if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
                 distance_mx_apt_delta = distance_mx_apt_delta.head(1)
                 # Writing to Postgres
-                distance_mx_apt_delta.to_sql('MAX_BEL_VAD_ASF_Log', engine, if_exists='append')
+                distance_mx_apt_delta.to_sql('MAX_'+vad_table, engine, if_exists='append')
             else:
                 # Writing to Postgres
-                distance_mx_apt_delta.to_sql('MAX_BEL_VAD_ASF_Log', engine, if_exists='append')
+                distance_mx_apt_delta.to_sql('MAX_'+vad_table, engine, if_exists='append')
 
         else:
             # Writing to Postgres
-            mx_apt_delta_new.to_sql('MAX_BEL_VAD_ASF_Log', engine, if_exists='append')
+            mx_apt_delta_new.to_sql('MAX_'+vad_table, engine, if_exists='append')
 
+
+def merge_mnr_vad_pg_table(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, outputpath):
+
+    MNR_sql = """
+            SELECT * FROM public."{MNR_ASF_pg_table}"
+
+            """
+    # VAD SQL
+    VAD_sql = """
+            SELECT * FROM public."{VAD_ASF_pg_table}"
+
+            """
+    # MNR Connection
+    MNR_sql_new = MNR_sql.replace("{MNR_ASF_pg_table}", MNR_ASF_pg_table)
+
+    mnr_SQLdata = pd.read_sql_query(MNR_sql_new, con=pg_connection)
+
+    mnr_schema = mnr_SQLdata.add_prefix("mnr_")
+    # MNR Drop Columns
+    df_mnr_schema = mnr_schema.drop(columns=['mnr_hnr_match', 'mnr_street_name_match', 'mnr_place_name_match',
+                                             'mnr_postal_code_name_match', 'mnr_hnr_match%',
+                                             'mnr_street_name_match%', 'mnr_place_name_match%',
+                                             'mnr_postal_code_name_match%', 'mnr_Stats_Result']
+                                    )
+    df_mnr_schema['SRID'] = df_mnr_schema['mnr_SRID']
+    # VAD Connection
+
+    VAD_sql_new = VAD_sql.replace("{VAD_ASF_pg_table}", 'MAX_'+ VAD_ASF_pg_table)
+
+    vad_SQLdata = pd.read_sql_query(VAD_sql_new, con=pg_connection)
+    vad_schema = vad_SQLdata.add_prefix("vad_")
+    # VAD Drop Columns
+    df_vad_schema = vad_schema.drop(columns=['vad_hnr_match', 'vad_street_name_match', 'vad_place_name_match',
+                                             'vad_postal_code_name_match', 'vad_hnr_match%',
+                                             'vad_street_name_match%', 'vad_place_name_match%',
+                                             'vad_postal_code_name_match%', 'vad_Stats_Result']
+                                    )
+    df_vad_schema['SRID'] = df_vad_schema['vad_SRID']
+    mnr_vad_merge = pd.merge(df_mnr_schema, df_vad_schema, on='SRID', how='inner')
+    # Writing to Postgres
+    mnr_vad_merge.to_sql('merge_MNR_VAD_ASF', engine, if_exists='append')
+    #
+    mnr_vad_merge.to_csv(outputpath + "Merge_MNR_VAD.csv", mode='w', index=False)
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
@@ -496,3 +539,8 @@ if __name__ == '__main__':
         vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
     # VAD MAX
     vad_parse_schema_data_postgres_max(engine,vad_filename)
+    print("vad_parse_schema_data_postgres_max..............Done !")
+
+    # Merge MNR, VAD
+    merge_mnr_vad_pg_table(engine, mnrfilename, vad_filename, outputpath)
+    print("merge_mnr_vad_pg_table..............Done !")
