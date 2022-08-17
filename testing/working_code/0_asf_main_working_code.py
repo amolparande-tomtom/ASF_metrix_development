@@ -55,7 +55,6 @@ Buffer_ST_DWithin_mnr_osm_intersect_sql = """
 
                                             """
 
-
 # VAD SQL Query
 Buffer_ST_DWithin_VAD_intersect_sql = """
                                         select 
@@ -73,17 +72,44 @@ Buffer_ST_DWithin_VAD_intersect_sql = """
                                         ST_GeomFromText('{point_geometry}',4326), {Buffer_in_Meter})
                                      """
 
-
 # Local Postgres VAD SQL for MAX
-
 
 VAD_sql = """
                 SELECT * FROM public."{vad_table}"     
           """
+# --1) present in MNR Only
+SQL_present_in_MNR_only = """
+                        select "{MNR_ASF_pg_table}".* ,"{VAD_ASF_pg_table}"."SRID" 
+
+                        from public."{MNR_ASF_pg_table}" 
+                        left outer join public."{VAD_ASF_pg_table}"
+
+                        on "{MNR_ASF_pg_table}"."SRID" = "{VAD_ASF_pg_table}"."SRID" 
+                        where "{VAD_ASF_pg_table}"."SRID" is null 
+
+                      """
+
+# --2) present in VAD Only
+SQL_present_in_vad_only = """
+                            select "{MNR_ASF_pg_table}"."SRID"  ,"{VAD_ASF_pg_table}".* 
+
+                            from "{MNR_ASF_pg_table}" 
+                            right outer join "{VAD_ASF_pg_table}"
+
+                            on "{MNR_ASF_pg_table}"."SRID" = "{VAD_ASF_pg_table}"."SRID" 
+                            where "{MNR_ASF_pg_table}"."SRID" is null 
+                        """
 
 
-# Local DB connection
-engine = create_engine('postgresql://postgres:postgres@localhost:5433/postgres')
+def input_csv_to_postgres(csv_path, pg_connection, csvfilename):
+    df = pd.read_csv(csv_path, encoding="utf-8")
+    # Replace Nan or Empty or Null values with 0.0 because it flot
+    df['provider_distance_orbis'] = df['provider_distance_orbis'].fillna(30.0)
+    df['provider_distance_genesis'] = df['provider_distance_genesis'].fillna(30.0)
+    # # create unique serial numbers pandas
+    # df.insert(1, 'SR_ID_new', range(1, 1 + len(df)))
+    # Dump into Postgres
+    df.to_sql(csvfilename, pg_connection, if_exists='append')
 
 
 # Postgres Database connection
@@ -453,18 +479,17 @@ def vad_parse_schema_data_postgres_max(pg_connection, vad_table):
             if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
                 distance_mx_apt_delta = distance_mx_apt_delta.head(1)
                 # Writing to Postgres
-                distance_mx_apt_delta.to_sql('MAX_'+vad_table, engine, if_exists='append')
+                distance_mx_apt_delta.to_sql('MAX_' + vad_table, engine, if_exists='append')
             else:
                 # Writing to Postgres
-                distance_mx_apt_delta.to_sql('MAX_'+vad_table, engine, if_exists='append')
+                distance_mx_apt_delta.to_sql('MAX_' + vad_table, engine, if_exists='append')
 
         else:
             # Writing to Postgres
-            mx_apt_delta_new.to_sql('MAX_'+vad_table, engine, if_exists='append')
+            mx_apt_delta_new.to_sql('MAX_' + vad_table, engine, if_exists='append')
 
 
 def merge_mnr_vad_pg_table(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, outputpath):
-
     MNR_sql = """
             SELECT * FROM public."{MNR_ASF_pg_table}"
 
@@ -489,7 +514,7 @@ def merge_mnr_vad_pg_table(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, ou
     df_mnr_schema['SRID'] = df_mnr_schema['mnr_SRID']
     # VAD Connection
 
-    VAD_sql_new = VAD_sql.replace("{VAD_ASF_pg_table}", 'MAX_'+ VAD_ASF_pg_table)
+    VAD_sql_new = VAD_sql.replace("{VAD_ASF_pg_table}", 'MAX_' + VAD_ASF_pg_table)
 
     vad_SQLdata = pd.read_sql_query(VAD_sql_new, con=pg_connection)
     vad_schema = vad_SQLdata.add_prefix("vad_")
@@ -506,6 +531,38 @@ def merge_mnr_vad_pg_table(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, ou
     #
     mnr_vad_merge.to_csv(outputpath + "Merge_MNR_VAD.csv", mode='w', index=False)
 
+
+def ASF_present_in_MNR_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, outputpath):
+    SQL_present_in_MNR_only_new = SQL_present_in_MNR_only.replace("{MNR_ASF_pg_table}", MNR_ASF_pg_table) \
+        .replace("{VAD_ASF_pg_table}", VAD_ASF_pg_table)
+
+    mnr_only = pd.read_sql_query(SQL_present_in_MNR_only_new, con=pg_connection)
+    if not mnr_only.empty:
+        mnr_only.to_csv(outputpath + "1_ASF_MNR_present_only.csv", mode='w', index=False)
+        print("mnr_only Not Empty")
+
+    else:
+        print("mnr_only is empty ")
+
+
+def ASF_present_in_VAD_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, outputpath):
+    SQL_present_in_vad_only_new = SQL_present_in_vad_only.replace("{MNR_ASF_pg_table}", MNR_ASF_pg_table) \
+        .replace("{VAD_ASF_pg_table}", VAD_ASF_pg_table)
+
+    VAD_only = pd.read_sql_query(SQL_present_in_vad_only_new, con=pg_connection)
+
+    if not VAD_only.empty:
+        VAD_only.to_csv(outputpath + "2_ASF_VAD_present_only.csv", mode='w', index=False)
+        print("Not Empty")
+    else:
+        print("VAD_only is empty ")
+
+
+######################### Input Area #####################################
+
+# Local DB connection
+engine = create_engine('postgresql://postgres:postgres@localhost:5433/postgres')
+
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
@@ -513,9 +570,6 @@ LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.n
 # VAD DB URL
 VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 
-# SQL Query
-# mnr_sql = Buffer_ST_DWithin_mnr_osm_intersect_sql
-# Postgres Connection to be written
 
 # schema
 MNR_schema_name = 'eur_cas'
@@ -526,10 +580,16 @@ country_language_code = ['nl', 'fr', 'de']
 # INPUT
 inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/1_BEL/BEL_ASF_logs.csv'
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/BEL/Postal_fix/'
-mnrfilename = 'BEL_MNR_ASF_Log'
-vad_filename = 'BEL_VAD_ASF_Log'
 
 if __name__ == '__main__':
+    # input files
+    inputfilename = inputcsv.split('/')[-1]
+    mnrfilename = 'MNR_ASF_Log'
+    vad_filename = 'VAD_ASF_Log'
+
+    # Dump INPUT CSV to Postgres
+    input_csv_to_postgres(inputcsv,engine, inputfilename)
+    # Create GeoDataFrame form CSV
     csv_gdb = create_points_from_input_csv(inputcsv)
     # MNR calling
     mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
@@ -538,9 +598,17 @@ if __name__ == '__main__':
     for i in country_language_code:
         vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
     # VAD MAX
-    vad_parse_schema_data_postgres_max(engine,vad_filename)
+    vad_parse_schema_data_postgres_max(engine, vad_filename)
     print("vad_parse_schema_data_postgres_max..............Done !")
 
     # Merge MNR, VAD
     merge_mnr_vad_pg_table(engine, mnrfilename, vad_filename, outputpath)
     print("merge_mnr_vad_pg_table..............Done !")
+
+    ASF_present_in_MNR_only(engine, mnrfilename, vad_filename, outputpath)
+
+    print("ASF_present_in_MNR_only..............Done !")
+
+    ASF_present_in_VAD_only(engine, mnrfilename, vad_filename, outputpath)
+
+    print("ASF_present_in_VAD_only..............Done !")
