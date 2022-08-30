@@ -5,6 +5,7 @@ from shapely.geometry import Point
 import geopandas as gpd
 from thefuzz import fuzz
 from sqlalchemy import create_engine
+import unidecode
 
 # MNR SQL Query
 Buffer_ST_DWithin_mnr_osm_intersect_sql = """
@@ -219,14 +220,24 @@ def mnr_query_for_one_record(db_url, r, schema_name):
 
 def mnr_calculate_fuzzy_values(r, schema_data):
     for n, j in schema_data.iterrows():
+        searched_query = str(r.searched_query)
+        hsn = str(j.hsn)
+        street_name = str(j.street_name)
+        place_name = str(j.place_name)
+        postal_code = str(j.postal_code)
+
         # House Number
-        hnr_mt = (fuzz.token_set_ratio(str(j.hsn), j.searched_query))
+        hnr_mt = fuzz.token_set_ratio(unidecode.unidecode(hsn).lower(), unidecode.unidecode(searched_query).lower())
         # Street Name
-        sn_mt = (fuzz.token_set_ratio(str(j.street_name), j.searched_query))
+        sn_mt = fuzz.token_set_ratio(unidecode.unidecode(street_name).lower(),
+                                     unidecode.unidecode(searched_query).lower())
         # Place Name
-        pln_mt = (fuzz.token_set_ratio(str(j.place_name), r.searched_query))
+        pln_mt = fuzz.token_set_ratio(unidecode.unidecode(place_name).lower(),
+                                      unidecode.unidecode(searched_query).lower())
         # Postal Code
-        pcode_mt = (fuzz.token_set_ratio(str(j.postal_code), r.searched_query))
+        pcode_mt = fuzz.token_set_ratio(unidecode.unidecode(postal_code).lower(),
+                                        unidecode.unidecode(searched_query).lower())
+
         schema_data.loc[n, 'hnr_match'] = hnr_mt
         schema_data.loc[n, 'street_name_match'] = sn_mt
         schema_data.loc[n, 'place_name_match'] = pln_mt
@@ -236,25 +247,17 @@ def mnr_calculate_fuzzy_values(r, schema_data):
         schema_data.loc[n, 'street_name_match%'] = (schema_data['street_name_match'][n] / 25)
         schema_data.loc[n, 'place_name_match%'] = (schema_data['place_name_match'][n] / 100)
         schema_data.loc[n, 'postal_code_name_match%'] = (schema_data['postal_code_name_match'][n] / 100)
+
         # Addition
+
         schema_data.loc[n, 'Stats_Result'] = (schema_data['hnr_match%'][n] +
                                               schema_data['street_name_match%'][n] +
                                               schema_data['place_name_match%'][n] +
                                               schema_data['postal_code_name_match%'][n])
         # Percentage
-        # schema_data.loc[n, 'Percentage'] = ((schema_data['Stats_Result'][n] / 4) * 10)
+        # schema_data.loc[n, 'Percentage'] = ((schema_data['Stats_Result'][n] / 4) * 100)
         schema_data.loc[n, 'Percentage'] = ((schema_data['Stats_Result'][n]) * 10)
 
-
-# def mnr_parse_schema_data_old(add_header, schema_data, outputpath, filename):
-#     for indx, row in schema_data.iterrows():
-#         if row.hsn != 0 or row.street_name != 'NODATA' or row.postal_code != 0 or row.place_name != 'NODATA':
-#             new_df = pd.DataFrame(row).transpose()
-#             if add_header:
-#                 new_df.to_csv(outputpath + filename, mode='w', index=False)
-#                 add_header = False
-#             else:
-#                 new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
 
 def mnr_parse_schema_data(add_header, schema_data, outputpath, filename):
     group_max = schema_data.groupby('SRID')['Percentage'].max()
@@ -364,14 +367,23 @@ def vad_query_for_one_record(db_url, r, vad_schema_name, language_code):
 
 def vad_calculate_fuzzy_values(r, schema_data):
     for n, j in schema_data.iterrows():
+        searched_query = str(r.searched_query)
+        hsn = str(j.housenumber)
+        street_name = str(j.streetname)
+        place_name = str(j.postalcode)
+        postal_code = str(j.placename)
+
         # House Number
-        hnr_mt = (fuzz.token_set_ratio(str(j.housenumber), r.searched_query))
+        hnr_mt = fuzz.token_set_ratio(unidecode.unidecode(hsn).lower(), unidecode.unidecode(searched_query).lower())
         # Street Name
-        sn_mt = (fuzz.token_set_ratio(str(j.streetname), r.searched_query))
+        sn_mt = fuzz.token_set_ratio(unidecode.unidecode(street_name).lower(),
+                                     unidecode.unidecode(searched_query).lower())
         # Place Name
-        pln_mt = (fuzz.token_set_ratio(str(j.postalcode), r.searched_query))
+        pln_mt = fuzz.token_set_ratio(unidecode.unidecode(place_name).lower(),
+                                      unidecode.unidecode(searched_query).lower())
         # Postal Code
-        pcode_mt = (fuzz.token_set_ratio(str(j.placename), r.searched_query))
+        pcode_mt = fuzz.token_set_ratio(unidecode.unidecode(postal_code).lower(),
+                                        unidecode.unidecode(searched_query).lower())
 
         schema_data.loc[n, 'hnr_match'] = hnr_mt
         schema_data.loc[n, 'street_name_match'] = sn_mt
@@ -413,54 +425,6 @@ def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
         else:
             print(row.SRID, "Blank rows")
 
-
-# def vad_parse_schema_data_csv_max(outputpath, vad_filename):
-#     file = os.path.join(outputpath, vad_filename)
-#     schema_data = pd.read_csv(file, encoding="utf-8")
-#
-#     group_max = schema_data.groupby('SRID')['Percentage'].max()
-#     pd_group_max = pd.DataFrame(group_max)
-#     mx_apt_delta_merge = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage']).sort_values('SRID')
-#     SRID = list(mx_apt_delta_merge["SRID"].unique())
-#
-#     for i in SRID:
-#         add_header = True
-#         if os.path.exists(outputpath + vad_filename):
-#             add_header = False
-#         mx_apt_delta_new = mx_apt_delta_merge.loc[mx_apt_delta_merge['SRID'] == i]
-#
-#         if mx_apt_delta_new['Percentage'].value_counts().values.max() > 1:
-#             min_distance = mx_apt_delta_new['distance'].min()
-#             distance_mx_apt_delta = mx_apt_delta_new.loc[mx_apt_delta_new['distance'] == min_distance]
-#             # get First Values
-#             if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
-#                 distance_mx_apt_delta = distance_mx_apt_delta.head(1)
-#                 # Writing to Postgres
-#                 distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
-#                 distance_mx_apt_delta.to_sql('BEL_VAD_ASF_Log', engine, if_exists='append')
-#             else:
-#                 # Writing to Postgres
-#                 distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
-#                 distance_mx_apt_delta.to_sql('BEL_VAD_ASF_Log', engine, if_exists='append')
-#             # CSV Writing
-#             # if add_header:
-#             #     distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
-#             #     add_header = False
-#             # else:
-#             #     distance_mx_apt_delta.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
-#         else:
-#             # Writing to Postgres
-#             mx_apt_delta_new = mx_apt_delta_new.drop(['geometry'], axis=1)
-#             mx_apt_delta_new.to_sql('BEL_VAD_ASF_Log', engine, if_exists='append')
-#             # CSV Writing
-#             # if add_header:
-#             #     mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='w', index=False)
-#             #     add_header = False
-#             # else:
-#             #     mx_apt_delta_new.to_csv(outputpath + "MAX_" + vad_filename, mode='a', header=False, index=False)
-
-
-# Input CSV
 
 def vad_parse_schema_data_postgres_max(pg_connection, vad_table):
     vad_table_sql = VAD_sql.replace("{vad_table}", vad_table)
@@ -529,7 +493,7 @@ def merge_mnr_vad_pg_table(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, ou
     # Writing to Postgres
     mnr_vad_merge.to_sql('merge_MNR_VAD_ASF', engine, if_exists='append')
     #
-    mnr_vad_merge.to_csv(outputpath + "Merge_MNR_VAD.csv", mode='w', index=False)
+    mnr_vad_merge.to_csv(outputpath + "1_ASF_Merge_MNR_VAD.csv", mode='w', index=False)
 
 
 def ASF_present_in_MNR_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, outputpath):
@@ -538,7 +502,7 @@ def ASF_present_in_MNR_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, o
 
     mnr_only = pd.read_sql_query(SQL_present_in_MNR_only_new, con=pg_connection)
     if not mnr_only.empty:
-        mnr_only.to_csv(outputpath + "1_ASF_MNR_present_only.csv", mode='w', index=False)
+        mnr_only.to_csv(outputpath + "2_ASF_MNR_present_only.csv", mode='w', index=False)
         print("mnr_only Not Empty")
 
     else:
@@ -552,7 +516,7 @@ def ASF_present_in_VAD_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, o
     VAD_only = pd.read_sql_query(SQL_present_in_vad_only_new, con=pg_connection)
 
     if not VAD_only.empty:
-        VAD_only.to_csv(outputpath + "2_ASF_VAD_present_only.csv", mode='w', index=False)
+        VAD_only.to_csv(outputpath + "3_ASF_VAD_present_only.csv", mode='w', index=False)
         print("Not Empty")
     else:
         print("VAD_only is empty ")
@@ -570,7 +534,6 @@ LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.n
 # VAD DB URL
 VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 
-
 # schema
 MNR_schema_name = 'eur_cas'
 VAD_schema_name = 'eur_bel_20220702_cw26'
@@ -578,37 +541,43 @@ VAD_schema_name = 'eur_bel_20220702_cw26'
 country_language_code = ['nl', 'fr', 'de']
 
 # INPUT
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/1_BEL/BEL_ASF_logs.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/0_input/0_list/House Number not match.csv'
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/BEL/Postal_fix/'
 
 if __name__ == '__main__':
     # input files
     inputfilename = inputcsv.split('/')[-1]
-    mnrfilename = 'MNR_ASF_Log'
+    mnrfilename = '8_House_Number_not_match'
     vad_filename = 'VAD_ASF_Log'
 
     # Dump INPUT CSV to Postgres
-    input_csv_to_postgres(inputcsv,engine, inputfilename)
+    input_csv_to_postgres(inputcsv, engine, inputfilename)
     # Create GeoDataFrame form CSV
     csv_gdb = create_points_from_input_csv(inputcsv)
     # MNR calling
     mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
                                          mnrfilename)
-    # VAD calling
-    for i in country_language_code:
-        vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
-    # VAD MAX
-    vad_parse_schema_data_postgres_max(engine, vad_filename)
-    print("vad_parse_schema_data_postgres_max..............Done !")
+    # # VAD calling
+    # for i in country_language_code:
+    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
+    # # VAD MAX
+    # vad_parse_schema_data_postgres_max(engine, vad_filename)
+    # print("vad_parse_schema_data_postgres_max..............Done !")
+    #
+    # # Merge MNR, VAD
+    # merge_mnr_vad_pg_table(engine, mnrfilename, vad_filename, outputpath)
+    # print("merge_mnr_vad_pg_table..............Done !")
+    #
+    # ASF_present_in_MNR_only(engine, mnrfilename, vad_filename, outputpath)
+    #
+    # print("ASF_present_in_MNR_only..............Done !")
+    #
+    # ASF_present_in_VAD_only(engine, mnrfilename, vad_filename, outputpath)
+    #
+    # print("ASF_present_in_VAD_only..............Done !")
 
-    # Merge MNR, VAD
-    merge_mnr_vad_pg_table(engine, mnrfilename, vad_filename, outputpath)
-    print("merge_mnr_vad_pg_table..............Done !")
+    print("-------------------------------------------")
+    print("-------------------------------------------")
+    print("-------------------------------------------")
 
-    ASF_present_in_MNR_only(engine, mnrfilename, vad_filename, outputpath)
-
-    print("ASF_present_in_MNR_only..............Done !")
-
-    ASF_present_in_VAD_only(engine, mnrfilename, vad_filename, outputpath)
-
-    print("ASF_present_in_VAD_only..............Done !")
+    print("ASF tool run !")
