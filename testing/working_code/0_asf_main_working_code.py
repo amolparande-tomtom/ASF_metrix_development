@@ -624,7 +624,7 @@ country_language_code = ['pl-Latn', 'cs-Latn']
 
 # INPUT
 inputcsv = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/0_input/0_list/POL_Python_improvement.csv'
-# outputpath = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/1_output/'
+outputpath = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/1_output/'
 
 if __name__ == '__main__':
     # input files
