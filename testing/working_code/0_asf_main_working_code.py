@@ -183,10 +183,10 @@ def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpat
         mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name,mnr_postal_code, hnr_street_name, integer_hnr,integer_postal_code, distance)
 
         # Null, Empty, Missing Value Mapping
-        schema_data['hsn'] = schema_data['hsn'].fillna(0)
-        schema_data['street_name'] = schema_data['street_name'].fillna('NODATA')
-        schema_data['postal_code'] = schema_data['postal_code'].fillna(0)
-        schema_data['place_name'] = schema_data['place_name'].fillna('NODATA')
+        # schema_data['hsn'] = schema_data['hsn'].fillna(0)
+        # schema_data['street_name'] = schema_data['street_name'].fillna('NODATA')
+        # schema_data['postal_code'] = schema_data['postal_code'].fillna(0)
+        # schema_data['place_name'] = schema_data['place_name'].fillna('NODATA')
 
         if schema_data.empty:
             print("Data Empty")
@@ -231,20 +231,29 @@ def mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
         # 1 # Concatenate House Number + Street Name
         hnr_stn = hsn + " " + street_name
 
-        # House Number
-        hnr_mt = fuzz.token_set_ratio(unidecode.unidecode(hsn).lower(),
-                                      unidecode.unidecode(searched_query).lower())
-        # Street Name
-        sn_mt = fuzz.token_set_ratio(unidecode.unidecode(street_name).lower(),
-                                     unidecode.unidecode(searched_query).lower())
-        # Place Name
-        pln_mt = fuzz.token_set_ratio(unidecode.unidecode(place_name).lower(),
-                                      unidecode.unidecode(searched_query).lower())
-        # Postal Code
-        pcode_mt = fuzz.token_set_ratio(unidecode.unidecode(postal_code).lower(),
+        hnr_mt = 0
+        sn_mt = 0
+        pln_mt = 0
+        pcode_mt = 0
 
-                                        unidecode.unidecode(searched_query).lower())
+        # House Number
+        if hsn != 'None':
+            hnr_mt = fuzz.token_set_ratio(unidecode.unidecode(hsn).lower(),
+                                          unidecode.unidecode(searched_query).lower())
+        # Street Name
+        if street_name != 'None':
+            sn_mt = fuzz.token_set_ratio(unidecode.unidecode(street_name).lower(),
+                                         unidecode.unidecode(searched_query).lower())
+        # Place Name
+        if place_name != 'None':
+            pln_mt = fuzz.token_set_ratio(unidecode.unidecode(place_name).lower(),
+                                          unidecode.unidecode(searched_query).lower())
+        # Postal Code
+        if postal_code != 'None':
+            pcode_mt = fuzz.token_set_ratio(unidecode.unidecode(postal_code).lower(),
+                                            unidecode.unidecode(searched_query).lower())
         # House Number Street Name
+
         hnr_stn_mt = fuzz.token_set_ratio(unidecode.unidecode(hnr_stn).lower(),
                                           unidecode.unidecode(searched_query).lower())
 
@@ -280,8 +289,9 @@ def mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
         # distance percentage
         schema_data.loc[n, 'distance_match'] = (100 / schema_data['distance'][n])
 
-        # Percentage
+        # Missing record
 
+        # Percentage
         schema_data.loc[n, 'Percentage'] = ((schema_data['hnr_match'][n] / 100) * mnr_hnr +
                                             (schema_data['street_name_match'][n] / 100) * mnr_street_name +
                                             (schema_data['place_name_match'][n] / 100) * mnr_place_name +
@@ -356,10 +366,10 @@ def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outpu
 
         vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name,mnr_postal_code, hnr_street_name, integer_hnr,integer_postal_code, distance)
         # Null, Empty, Missing Value Mapping
-        schema_data['housenumber'] = schema_data['housenumber'].fillna(0)
-        schema_data['streetname'] = schema_data['streetname'].fillna('NODATA')
-        schema_data['postalcode'] = schema_data['postalcode'].fillna(0)
-        schema_data['placename'] = schema_data['placename'].fillna('NODATA')
+        # schema_data['housenumber'] = schema_data['housenumber'].fillna(0)
+        # schema_data['streetname'] = schema_data['streetname'].fillna('NODATA')
+        # schema_data['postalcode'] = schema_data['postalcode'].fillna(0)
+        # schema_data['placename'] = schema_data['placename'].fillna('NODATA')
 
         # Writing csv Empty ASF
         if schema_data.empty:
@@ -402,20 +412,31 @@ def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
         place_name = str(j.postalcode)
         postal_code = str(j.placename)
 
+        hnr_mt = 0
+        sn_mt = 0
+        pln_mt = 0
+        pcode_mt = 0
+
+
+
         # 1 # Concatenate House Number + Street Name
         hnr_stn = hsn + " " + street_name
 
         # House Number
-        hnr_mt = fuzz.token_set_ratio(unidecode.unidecode(hsn).lower(), unidecode.unidecode(searched_query).lower())
+        if hsn != 'None':
+            hnr_mt = fuzz.token_set_ratio(unidecode.unidecode(hsn).lower(), unidecode.unidecode(searched_query).lower())
         # Street Name
-        sn_mt = fuzz.token_set_ratio(unidecode.unidecode(street_name).lower(),
-                                     unidecode.unidecode(searched_query).lower())
+        if street_name != 'None':
+            sn_mt = fuzz.token_set_ratio(unidecode.unidecode(street_name).lower(),
+                                         unidecode.unidecode(searched_query).lower())
         # Place Name
-        pln_mt = fuzz.token_set_ratio(unidecode.unidecode(place_name).lower(),
-                                      unidecode.unidecode(searched_query).lower())
+        if place_name != 'None':
+            pln_mt = fuzz.token_set_ratio(unidecode.unidecode(place_name).lower(),
+                                          unidecode.unidecode(searched_query).lower())
         # Postal Code
-        pcode_mt = fuzz.token_set_ratio(unidecode.unidecode(postal_code).lower(),
-                                        unidecode.unidecode(searched_query).lower())
+        if postal_code != 'None':
+            pcode_mt = fuzz.token_set_ratio(unidecode.unidecode(postal_code).lower(),
+                                            unidecode.unidecode(searched_query).lower())
 
         # House Number Street Name
         hnr_stn_mt = fuzz.token_set_ratio(unidecode.unidecode(hnr_stn).lower(),
@@ -596,6 +617,7 @@ LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.n
 VAD_DB_Connections = "postgresql://10.137.173.73/ggg?user=ggg&password=ok"
 # schema
 MNR_schema_name = 'eur_cas'
+
 VAD_schema_name = 'amedias_0_22_36_eur_pol'
 
 # user weightage
@@ -623,7 +645,7 @@ engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "
 country_language_code = ['pl-Latn', 'cs-Latn']
 
 # INPUT
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/0_input/0_list/POL_Python_improvement.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/0_input/0_list/CZE_Python_improvement.csv'
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/1_output/'
 
 if __name__ == '__main__':
@@ -640,10 +662,10 @@ if __name__ == '__main__':
     mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
                                          mnrfilename)
     # VAD calling
-    for i in country_language_code:
-        vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
-    # VAD MAX
-    vad_parse_schema_data_postgres_max(engine, vad_filename)
+    # for i in country_language_code:
+    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
+    # # VAD MAX
+    # vad_parse_schema_data_postgres_max(engine, vad_filename)
     # print("vad_parse_schema_data_postgres_max..............Done !")
     #
     # # Merge MNR, VAD
