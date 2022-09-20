@@ -164,20 +164,20 @@ def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpat
         #     add_header = False
         schema_data = mnr_query_for_one_record(db_url, r, schema_name)
 
-        # Fizzy Matching logic
-        schema_data['hnr_match'] = 0
-        schema_data['street_name_match'] = 0
-        schema_data['place_name_match'] = 0
-        schema_data['postal_code_name_match'] = 0
-        # Statistics calculation
-        schema_data['hnr_match%'] = 0
-        schema_data['street_name_match%'] = 0
-        schema_data['place_name_match%'] = 0
-        schema_data['postal_code_name_match%'] = 0
-        # Addition
-        schema_data['Stats_Result'] = 0
-        # Percentage
-        schema_data['Percentage'] = 0
+        # # Fizzy Matching logic
+        # schema_data['hnr_match'] = 0
+        # schema_data['street_name_match'] = 0
+        # schema_data['place_name_match'] = 0
+        # schema_data['postal_code_name_match'] = 0
+        # # Statistics calculation
+        # schema_data['hnr_match%'] = 0
+        # schema_data['street_name_match%'] = 0
+        # schema_data['place_name_match%'] = 0
+        # schema_data['postal_code_name_match%'] = 0
+        # # Addition
+        # schema_data['Stats_Result'] = 0
+        # # Percentage
+        # schema_data['Percentage'] = 0
 
         # fuzzy MNR function
         mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name,mnr_postal_code, hnr_street_name, integer_hnr,integer_postal_code, distance)
@@ -417,8 +417,6 @@ def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
         pln_mt = 0
         pcode_mt = 0
 
-
-
         # 1 # Concatenate House Number + Street Name
         hnr_stn = hsn + " " + street_name
 
@@ -586,7 +584,6 @@ def ASF_present_in_MNR_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, o
     if not mnr_only.empty:
         mnr_only.to_csv(outputpath + "2_ASF_MNR_present_only.csv", mode='w', index=False)
         print("mnr_only Not Empty")
-
     else:
         print("mnr_only is empty ")
 
@@ -604,21 +601,47 @@ def ASF_present_in_VAD_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, o
         print("VAD_only is empty ")
 
 
-######################### Input Area #####################################
+def pgDBToCsv(pg_connection, MNR_ASF_pg_table, outputpath):
+    MNR_sql = """
+            SELECT * FROM public."{MNR_ASF_pg_table}"
 
+            """
+    # MNR Connection
+    MNR_sql_new = MNR_sql.replace("{MNR_ASF_pg_table}", MNR_ASF_pg_table)
+
+    mnr_SQLdata = pd.read_sql_query(MNR_sql_new, con=pg_connection)
+
+    mnr_schema = mnr_SQLdata.add_prefix("mnr_")
+
+    mnr_schema.to_csv(outputpath + MNR_ASF_pg_table + ".csv", mode='w', index=False)
+
+
+##########################################################################
+##########################################################################
+######################### Input Area #####################################
+##########################################################################
+##########################################################################
+
+# INPUT
+inputcsv = '/Users/parande/Downloads/bra_asf_sample_.csv'
+
+outputpath = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/1_output/'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 
 # VAD DB URL
-# VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
-# Amedias
-VAD_DB_Connections = "postgresql://10.137.173.73/ggg?user=ggg&password=ok"
-# schema
-MNR_schema_name = 'eur_cas'
+VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+
+# schemas
+
+MNR_schema_name = '_2022_09_004_lam_bra_bra'
 
 VAD_schema_name = 'amedias_0_22_36_eur_pol'
+
+# language_code
+country_language_code = ['pl-Latn', 'cs-Latn']
 
 # user weightage
 mnr_hnr = 15
@@ -641,15 +664,14 @@ PassWord = "postgres"
 # Local DB connection
 engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "/" + DataBase
 
-# language_code
-country_language_code = ['pl-Latn', 'cs-Latn']
 
-# INPUT
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/0_input/0_list/CZE_Python_improvement.csv'
-outputpath = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/1_output/'
+
 
 if __name__ == '__main__':
     # input files
+    # WindowS
+    # inputfilename = os.path.basename(inputcsv).split('\\')[-1].split('.')[0]
+    # MAC
     inputfilename = inputcsv.split('/')[-1].split('.')[0]
     mnrfilename = "MNR_" + inputfilename
     vad_filename = "VAD_" + inputfilename
@@ -661,12 +683,19 @@ if __name__ == '__main__':
     # MNR calling
     mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
                                          mnrfilename)
+    # MNR to CSV
+    pgDBToCsv(engine, mnrfilename, outputpath)
+
     # VAD calling
     for i in country_language_code:
         vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
-    # VAD MAX
+    # # VAD MAX
     vad_parse_schema_data_postgres_max(engine, vad_filename)
     print("vad_parse_schema_data_postgres_max..............Done !")
+
+    # VAD to CSV
+    pgDBToCsv(engine, vad_filename, outputpath)
+
 
     # # Merge MNR, VAD
     # merge_mnr_vad_pg_table(engine, mnrfilename, vad_filename, outputpath)
