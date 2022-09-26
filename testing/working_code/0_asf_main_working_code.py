@@ -409,8 +409,8 @@ def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
         searched_query = str(r.searched_query)
         hsn = str(j.housenumber)
         street_name = str(j.streetname)
-        place_name = str(j.postalcode)
-        postal_code = str(j.placename)
+        place_name = str(j.placename)
+        postal_code = str(j.postalcode)
 
         hnr_mt = 0
         sn_mt = 0
@@ -601,7 +601,7 @@ def ASF_present_in_VAD_only(pg_connection, MNR_ASF_pg_table, VAD_ASF_pg_table, o
         print("VAD_only is empty ")
 
 
-def pgDBToCsv(pg_connection, MNR_ASF_pg_table, outputpath):
+def pgDBToCsvMnr(pg_connection, MNR_ASF_pg_table, outputpath):
     MNR_sql = """
             SELECT * FROM public."{MNR_ASF_pg_table}"
 
@@ -615,6 +615,19 @@ def pgDBToCsv(pg_connection, MNR_ASF_pg_table, outputpath):
 
     mnr_schema.to_csv(outputpath + MNR_ASF_pg_table + ".csv", mode='w', index=False)
 
+def pgDBToCsvVad(pg_connection, MNR_ASF_pg_table, outputpath):
+    MNR_sql = """
+            SELECT * FROM public."{MNR_ASF_pg_table}"
+
+            """
+    # MNR Connection
+    MNR_sql_new = MNR_sql.replace("{MNR_ASF_pg_table}", MNR_ASF_pg_table)
+
+    mnr_SQLdata = pd.read_sql_query(MNR_sql_new, con=pg_connection)
+
+    mnr_schema = mnr_SQLdata.add_prefix("vad_")
+
+    mnr_schema.to_csv(outputpath + MNR_ASF_pg_table + ".csv", mode='w', index=False)
 
 ##########################################################################
 ##########################################################################
@@ -623,7 +636,7 @@ def pgDBToCsv(pg_connection, MNR_ASF_pg_table, outputpath):
 ##########################################################################
 
 # INPUT
-inputcsv = '/Users/parande/Downloads/bra_asf_sample_.csv'
+inputcsv = '/Users/parande/Downloads/bra_asf_sample.csv'
 
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/1_output/'
 
@@ -632,16 +645,17 @@ EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mn
 LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 
 # VAD DB URL
-VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+# VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+VAD_DB_Connections = "postgresql://10.137.173.72/ggg?user=ggg&password=ok"
 
 # schemas
 
-MNR_schema_name = '_2022_09_004_lam_bra_bra'
+MNR_schema_name = 'lam_mea_oce_sea'
 
-VAD_schema_name = 'amedias_0_22_36_eur_pol'
+VAD_schema_name = 'ade_amedias_0_22_38_sam_bra'
 
 # language_code
-country_language_code = ['pl-Latn', 'cs-Latn']
+country_language_code = ['pt-Latn', 'es-Latn']
 
 # user weightage
 mnr_hnr = 15
@@ -666,7 +680,6 @@ engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "
 
 
 
-
 if __name__ == '__main__':
     # input files
     # WindowS
@@ -681,10 +694,10 @@ if __name__ == '__main__':
     # Create GeoDataFrame form CSV
     csv_gdb = create_points_from_input_csv(inputcsv)
     # MNR calling
-    mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
+    mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
                                          mnrfilename)
     # MNR to CSV
-    pgDBToCsv(engine, mnrfilename, outputpath)
+    pgDBToCsvMnr(engine, mnrfilename, outputpath)
 
     # VAD calling
     for i in country_language_code:
@@ -694,7 +707,7 @@ if __name__ == '__main__':
     print("vad_parse_schema_data_postgres_max..............Done !")
 
     # VAD to CSV
-    pgDBToCsv(engine, vad_filename, outputpath)
+    pgDBToCsvVad(engine, 'MAX_'+ vad_filename, outputpath)
 
 
     # # Merge MNR, VAD
