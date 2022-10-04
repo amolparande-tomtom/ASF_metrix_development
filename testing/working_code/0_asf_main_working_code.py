@@ -7,6 +7,9 @@ import geopandas as gpd
 from thefuzz import fuzz
 from sqlalchemy import create_engine
 import unidecode
+from datetime import datetime
+import logging
+import time
 
 # MNR SQL Query
 Buffer_ST_DWithin_mnr_osm_intersect_sql = """
@@ -144,7 +147,7 @@ def create_points_from_input_csv(csv_path):
     return gpd.GeoDataFrame(df, crs="EPSG:4326")
 
 
-def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpath, filename ):
+def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpath, filename):
     """
 
     :param csv_gdf:
@@ -180,7 +183,8 @@ def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpat
         # schema_data['Percentage'] = 0
 
         # fuzzy MNR function
-        mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name,mnr_postal_code, hnr_street_name, integer_hnr,integer_postal_code, distance)
+        mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
+                                   hnr_street_name, integer_hnr, integer_postal_code, distance)
 
         # Null, Empty, Missing Value Mapping
         # schema_data['hsn'] = schema_data['hsn'].fillna(0)
@@ -200,7 +204,8 @@ def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpat
             # schema_data.to_sql('BEL_MNR_ASF_Log', engine, if_exists='append')
 
             # Writing CSV
-            mnr_parse_schema_data(add_header, schema_data, outputpath, filename)
+            # mnr_parse_schema_data(add_header, schema_data, outputpath, filename)
+            mnr_parse_schema_data_old(schema_data, outputpath, filename)
 
 
 def mnr_query_for_one_record(db_url, r, schema_name):
@@ -220,7 +225,9 @@ def mnr_query_for_one_record(db_url, r, schema_name):
     schema_data.loc[schema_data['distance'] < 1, 'distance'] = 1
     return schema_data
 
-def mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name,mnr_postal_code, hnr_street_name, integer_hnr,integer_postal_code, distance):
+
+def mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
+                               hnr_street_name, integer_hnr, integer_postal_code, distance):
     for n, j in schema_data.iterrows():
         searched_query = str(r.searched_query)
         hsn = str(j.hsn)
@@ -302,6 +309,14 @@ def mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
                                             (schema_data['distance_match'][n] / 100) * distance
                                             ).round(4)
 
+
+def mnr_parse_schema_data_old(schema_data, outputpath, filename):
+    for indx, row in schema_data.iterrows():
+        if row.hsn != 0 or row.street_name != 'NODATA' or row.postal_code != 0 or row.place_name != 'NODATA':
+            new_df = pd.DataFrame(row).transpose()
+            csvFileWriter(new_df, filename, outputpath)
+
+
 def mnr_parse_schema_data(add_header, schema_data, outputpath, filename):
     column_names = ["SRID", "country", "feat_id", "lang_code", "iso_lang_code", "notation",
                     "iso_script", "state_province_name", "place_name", "street_name", "postal_code",
@@ -314,7 +329,9 @@ def mnr_parse_schema_data(add_header, schema_data, outputpath, filename):
     group_max = schema_data.groupby('SRID')['Percentage'].max()
     pd_group_max = pd.DataFrame(group_max)
     mx_apt_delta = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage'])
+
     # Check group has more than one values then take minimum distance
+
     if mx_apt_delta['Percentage'].value_counts().values.max() > 1:
         min_distance = mx_apt_delta['distance'].min()
         distance_mx_apt_delta = mx_apt_delta.loc[mx_apt_delta['distance'] == min_distance]
@@ -323,16 +340,18 @@ def mnr_parse_schema_data(add_header, schema_data, outputpath, filename):
             distance_mx_apt_delta = distance_mx_apt_delta.head(1)
             # Writing to Postgres
             distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
-            distance_mx_apt_delta.to_sql(filename, engine, if_exists='append')
+            # distance_mx_apt_delta.to_sql(filename, engine, if_exists='append')
+
+            # Writing to CSV
+            csvFileWriter(distance_mx_apt_delta, filename + ".csv", outputpath)
+
         else:
             # Writing to Postgres
             distance_mx_apt_delta = distance_mx_apt_delta.drop(['geometry'], axis=1)
-            distance_mx_apt_delta.to_sql(filename, engine, if_exists='append')
-        # if add_header:
-        #     distance_mx_apt_delta.to_csv(outputpath + filename, mode='w', index=False)
-        #     add_header = False
-        # else:
-        #     distance_mx_apt_delta.to_csv(outputpath + filename, mode='a', header=False, index=False)
+            # distance_mx_apt_delta.to_sql(filename, engine, if_exists='append')
+            # Writing to CSV
+            csvFileWriter(distance_mx_apt_delta, filename + ".csv", outputpath)
+
 
     else:
         for indx, row in mx_apt_delta.iterrows():
@@ -341,13 +360,18 @@ def mnr_parse_schema_data(add_header, schema_data, outputpath, filename):
 
                 # Writing to Postgres
                 new_df = new_df.drop(['geometry'], axis=1)
-                new_df.to_sql(filename, engine, if_exists='append')
+                # new_df.to_sql(filename, engine, if_exists='append')
 
-                # if add_header:
-                #     new_df.to_csv(outputpath + filename, mode='w', index=False)
-                #     add_header = False
-                # else:
-                #     new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
+                # Writing to CSV
+                csvFileWriter(new_df, filename + ".csv", outputpath)
+
+
+def csvFileWriter(pandasDataFrame, filename, outputpath):
+    if not os.path.exists(outputpath + filename):
+        pandasDataFrame.to_csv(outputpath + filename, mode='w', index=False, encoding="utf-8")
+
+    else:
+        pandasDataFrame.to_csv(outputpath + filename, mode='a', header=False, index=False, encoding="utf-8")
 
 
 def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outputpath, filename, language_code):
@@ -364,7 +388,8 @@ def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outpu
 
         # fuzzy VAD function
 
-        vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name,mnr_postal_code, hnr_street_name, integer_hnr,integer_postal_code, distance)
+        vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
+                                   hnr_street_name, integer_hnr, integer_postal_code, distance)
         # Null, Empty, Missing Value Mapping
         # schema_data['housenumber'] = schema_data['housenumber'].fillna(0)
         # schema_data['streetname'] = schema_data['streetname'].fillna('NODATA')
@@ -382,6 +407,8 @@ def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outpu
 
             # Writing CSV
             vad_parse_schema_data(schema_data, add_header, outputpath, filename)
+
+            # vad_parse_schema_data_old(schema_data, outputpath, filename)
 
 
 def vad_query_for_one_record(db_url, r, vad_schema_name, language_code):
@@ -404,7 +431,8 @@ def vad_query_for_one_record(db_url, r, vad_schema_name, language_code):
     return schema_data
 
 
-def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name,mnr_postal_code, hnr_street_name, integer_hnr,integer_postal_code, distance):
+def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
+                               hnr_street_name, integer_hnr, integer_postal_code, distance):
     for n, j in schema_data.iterrows():
         searched_query = str(r.searched_query)
         hsn = str(j.housenumber)
@@ -484,6 +512,32 @@ def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
                                             ).round(4)
 
 
+def vad_parse_schema_data_old(schema_data, outputpath, filename):
+    for indx, row in schema_data.iterrows():
+        if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
+            new_df = pd.DataFrame(row).transpose()
+            # Writing to Postgres
+            new_df = new_df.drop(['geometry'], axis=1)
+            new_df.to_sql(filename, engine, if_exists='append')
+            print("##############Printed DATA######################")
+            print(schema_data.SRID)
+            # Writing to CSV
+            # csvFileWriter(new_df, filename, outputpath)
+
+            # Old Logic
+
+            # if add_header:
+            #     new_df.to_csv(outputpath + filename, mode='w', index=False)
+            #     print("##############Printed DATA######################")
+            #     add_header = False
+            # else:
+            #     new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
+            #     print("##############Printed DATA######################")
+
+        else:
+            print(row.SRID, "Blank rows")
+
+
 def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
     for indx, row in schema_data.iterrows():
         if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
@@ -494,6 +548,10 @@ def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
             print("##############Printed DATA######################")
             print(schema_data.SRID)
             # Writing to CSV
+            csvFileWriter(new_df, filename, outputpath)
+
+            # Old Logic
+
             # if add_header:
             #     new_df.to_csv(outputpath + filename, mode='w', index=False)
             #     print("##############Printed DATA######################")
@@ -615,6 +673,7 @@ def pgDBToCsvMnr(pg_connection, MNR_ASF_pg_table, outputpath):
 
     mnr_schema.to_csv(outputpath + MNR_ASF_pg_table + ".csv", mode='w', index=False)
 
+
 def pgDBToCsvVad(pg_connection, MNR_ASF_pg_table, outputpath):
     MNR_sql = """
             SELECT * FROM public."{MNR_ASF_pg_table}"
@@ -629,6 +688,7 @@ def pgDBToCsvVad(pg_connection, MNR_ASF_pg_table, outputpath):
 
     mnr_schema.to_csv(outputpath + MNR_ASF_pg_table + ".csv", mode='w', index=False)
 
+
 ##########################################################################
 ##########################################################################
 ######################### Input Area #####################################
@@ -636,21 +696,22 @@ def pgDBToCsvVad(pg_connection, MNR_ASF_pg_table, outputpath):
 ##########################################################################
 
 # INPUT
-inputcsv = '/Users/parande/Downloads/bra_asf_sample.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/0_input/1_speedTest/GLP_ASF.csv'
 
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/5_Improvement/0_deployment_3/1_output/'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
-LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
+# LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
+LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-002.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 
 # VAD DB URL
 # VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+# Amedias
 VAD_DB_Connections = "postgresql://10.137.173.72/ggg?user=ggg&password=ok"
 
 # schemas
-
-MNR_schema_name = 'lam_mea_oce_sea'
+MNR_schema_name = '_2022_09_007_lam_glp_glp'
 
 VAD_schema_name = 'ade_amedias_0_22_38_sam_bra'
 
@@ -678,37 +739,53 @@ PassWord = "postgres"
 # Local DB connection
 engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "/" + DataBase
 
-
-
 if __name__ == '__main__':
+
     # input files
     # WindowS
     # inputfilename = os.path.basename(inputcsv).split('\\')[-1].split('.')[0]
     # MAC
     inputfilename = inputcsv.split('/')[-1].split('.')[0]
-    mnrfilename = "MNR_" + inputfilename
-    vad_filename = "VAD_" + inputfilename
+
+    mnrfilename = "MNR_" + inputfilename + ".csv"
+    vad_filename = "VAD_" + inputfilename + ".csv"
+
+    # create log file
+    logging.basicConfig(filename=outputpath + 'log' + inputfilename, level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s")
+    # Script start time
+    mnrStartTime = datetime.now()
+
 
     # Dump INPUT CSV to Postgres
-    input_csv_to_postgres(inputcsv, engine, inputfilename)
+    # input_csv_to_postgres(inputcsv, engine, inputfilename)
     # Create GeoDataFrame form CSV
     csv_gdb = create_points_from_input_csv(inputcsv)
-    # MNR calling
+    # # MNR calling
     mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
                                          mnrfilename)
+
+    mnrEndTime = datetime.now()
+
+
     # MNR to CSV
-    pgDBToCsvMnr(engine, mnrfilename, outputpath)
+    # pgDBToCsvMnr(engine, mnrfilename, outputpath)
+
+    # file execution time calculation
+    mnrTotalTime = mnrEndTime - mnrStartTime
+
+
+    vadStartTime = datetime.now()
 
     # VAD calling
-    for i in country_language_code:
-        vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
-    # # VAD MAX
-    vad_parse_schema_data_postgres_max(engine, vad_filename)
-    print("vad_parse_schema_data_postgres_max..............Done !")
-
-    # VAD to CSV
-    pgDBToCsvVad(engine, 'MAX_'+ vad_filename, outputpath)
-
+    # for i in country_language_code:
+    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
+    # # # VAD MAX
+    # vad_parse_schema_data_postgres_max(engine, vad_filename)
+    # print("vad_parse_schema_data_postgres_max..............Done !")
+    #
+    # # VAD to CSV
+    # pgDBToCsvVad(engine, 'MAX_' + vad_filename, outputpath)
 
     # # Merge MNR, VAD
     # merge_mnr_vad_pg_table(engine, mnrfilename, vad_filename, outputpath)
@@ -719,6 +796,14 @@ if __name__ == '__main__':
     # print("ASF_present_in_MNR_only..............Done !")
     #
     # ASF_present_in_VAD_only(engine, mnrfilename, vad_filename, outputpath)
+
+    # end Time calculation
+    vadEnd_time = datetime.now()
+
+    vadTotalTime = vadEnd_time - vadStartTime
+
+    # logfile message input
+    logging.warning('MNR execution time:{},VAD execution time:{}'.format(mnrTotalTime, vadTotalTime))
 
     print("ASF_present_in_VAD_only..............Done !")
 
