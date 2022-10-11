@@ -152,6 +152,27 @@ def create_points_from_input_csv(csv_path, schema_name, db_url, outputpath, file
     return gpd.GeoDataFrame(df, crs="EPSG:4326")
 
 
+def create_points_from_input_csv_VAD(csv_path, schema_name, db_url, outputpath, filename):
+    """
+    info:create point GeoDataFrame from input ASF CSV.
+    :param csv_path: input ASF CSV Path
+    :return: Point GeoDataFrame
+    """
+    df = pd.read_csv(csv_path, encoding="utf-8")
+    # creating a geometry column
+    df['geometry'] = [Point(xy) for xy in zip(df['lon'], df['lat'])]
+    # Replace Nan or Empty or Null values with 0.0 because it flot
+    df['provider_distance_orbis'] = df['provider_distance_orbis'].fillna(30.0)
+    df['provider_distance_genesis'] = df['provider_distance_genesis'].fillna(30.0)
+    df['schema_name'] = schema_name
+    df['db_url'] = db_url
+    df['outputpath'] = outputpath
+    df['filename'] = filename
+
+    # Creating a Geographic data frame
+    return gpd.GeoDataFrame(df, crs="EPSG:4326")
+
+
 # def mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdf, schema_name, db_url, outputpath, filename):
 
 
@@ -293,8 +314,10 @@ def mnr_parse_schema_data(schema_data, outputpath, filename):
                     "hnr_street_name_match", "new_hnr_match", "new_postal_code_name_match",
                     "distance_match", "Percentage"]
     schema_data = schema_data.reindex(columns=column_names)
+    # Adding count each SRID group
+    schema_data["SRID_count"] = schema_data.SRID.size
     # Dump Pre Data
-    csvFileWriter(schema_data, "AllCount_"+filename + ".csv", outputpath)
+    csvFileWriter(schema_data, "AllCount_" + filename + ".csv", outputpath)
     group_max = schema_data.groupby('SRID')['Percentage'].max()
     pd_group_max = pd.DataFrame(group_max)
     mx_apt_delta = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage'])
@@ -343,50 +366,39 @@ def csvFileWriter(pandasDataFrame, filename, outputpath):
         pandasDataFrame.to_csv(outputpath + filename, mode='a', header=False, index=False, encoding="utf-8")
 
 
-def vad_csv_buffer_db_apt_fuzzy_matching(csv_gdf, vad_schema_name, db_url, outputpath, filename, language_code):
-    for i, r in csv_gdf.iterrows():
-        add_header = True
-        if os.path.exists(outputpath + filename):
-            add_header = False
-        # add_header = True
-        # if i != 0:
-        #     add_header = False
-        schema_data = vad_query_for_one_record(db_url, r, vad_schema_name, language_code)
+# for i, r in csv_gdf.iterrows():
+def vad_csv_buffer_db_apt_fuzzy_matching(r, language_code):
+    schema_data = vad_query_for_one_record(r.db_url, r, r.schema_name, language_code)
 
-        schema_data['language_code'] = language_code
+    schema_data['language_code'] = language_code
 
-        # fuzzy VAD function
+    # fuzzy VAD function
 
-        vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
-                                   hnr_street_name, integer_hnr, integer_postal_code, distance)
-        # Null, Empty, Missing Value Mapping
-        # schema_data['housenumber'] = schema_data['housenumber'].fillna(0)
-        # schema_data['streetname'] = schema_data['streetname'].fillna('NODATA')
-        # schema_data['postalcode'] = schema_data['postalcode'].fillna(0)
-        # schema_data['placename'] = schema_data['placename'].fillna('NODATA')
+    vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
+                               hnr_street_name, integer_hnr, integer_postal_code, distance)
 
-        # Writing csv Empty ASF
-        if schema_data.empty:
-            print("Data Empty")
+    # Writing csv Empty ASF
+    if schema_data.empty:
+        print("Data Empty")
 
-        if not schema_data.empty:
-            # print("VAD_SRID:", schema_data.SRID)
+    if not schema_data.empty:
+        # print("VAD_SRID:", schema_data.SRID)
 
-            # Writing to the Postgres
+        # Writing to the Postgres
 
-            # Writing CSV
-            vad_parse_schema_data(schema_data, add_header, outputpath, filename)
+        # Writing CSV
+        vad_parse_schema_data(schema_data, r.outputpath, r.filename)
 
-            # vad_parse_schema_data_old(schema_data, outputpath, filename)
+        # vad_parse_schema_data_old(schema_data, outputpath, filename)
 
 
-def vad_query_for_one_record(db_url, r, vad_schema_name, language_code):
+def vad_query_for_one_record(db_url, r, schema_name, language_code):
     buffer = r.provider_distance_orbis * 0.00001
     # print("SR_ID:", r.SR_ID, "language_code:", language_code, "provider_distance_orbis:", r.provider_distance_orbis,
     #       "And", buffer)
     # print("Geometry:", r.geometry)
     new_VAD_intersect_sql = Buffer_ST_DWithin_VAD_intersect_sql.replace("{point_geometry}", str(r.geometry)) \
-        .replace("{schema_name_vad}", vad_schema_name) \
+        .replace("{schema_name_vad}", r.schema_name) \
         .replace("{Buffer_in_Meter}", str(buffer)) \
         .replace("{language_code}", language_code)
     schema_data = pd.read_sql_query(new_VAD_intersect_sql, postgres_db_connection(db_url))
@@ -507,7 +519,7 @@ def vad_parse_schema_data_old(schema_data, outputpath, filename):
             print(row.SRID, "Blank rows")
 
 
-def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
+def vad_parse_schema_data(schema_data, outputpath, filename):
     for indx, row in schema_data.iterrows():
         if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
             new_df = pd.DataFrame(row).transpose()
@@ -518,16 +530,6 @@ def vad_parse_schema_data(schema_data, add_header, outputpath, filename):
             print(schema_data.SRID)
             # Writing to CSV
             csvFileWriter(new_df, filename, outputpath)
-
-            # Old Logic
-
-            # if add_header:
-            #     new_df.to_csv(outputpath + filename, mode='w', index=False)
-            #     print("##############Printed DATA######################")
-            #     add_header = False
-            # else:
-            #     new_df.to_csv(outputpath + filename, mode='a', header=False, index=False)
-            #     print("##############Printed DATA######################")
 
         else:
             print(row.SRID, "Blank rows")
@@ -677,12 +679,12 @@ LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-001.flatns.n
 # VAD DB URL
 # VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 # Amedias
-# VAD_DB_Connections = "postgresql://10.137.173.72/ggg?user=ggg&password=ok"
+VAD_DB_Connections = "postgresql://10.137.173.68/ggg?user=ggg&password=ok"
 
 # schemas
-MNR_schema_name = '_2022_09_007_eur_fra_fra'
+MNR_schema_name = '_2022_09_008_eur_fra_fra'
 
-VAD_schema_name = 'eur_fra_20220903_cw35'
+VAD_schema_name = 'ade_amedias_0_22_40_eur_fra'
 
 # language_code
 country_language_code = ['nl-Latn', 'fr-Latn', 'de-Latn']
@@ -719,39 +721,51 @@ if __name__ == '__main__':
     vad_filename = "VAD_" + inputfilename + ".csv"
 
     # create log file
-    logging.basicConfig(filename=outputpath + 'log' + inputfilename+'.txt', level=logging.INFO,
+    logging.basicConfig(filename=outputpath + 'log' + inputfilename + '.txt', level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s")
     # Script start time
     mnrStartTime = datetime.now()
 
-    # Dump INPUT CSV to Postgres
-    # input_csv_to_postgres(inputcsv, engine, inputfilename)
-    # Create GeoDataFrame form CSV
-    csv_gdb = create_points_from_input_csv(inputcsv, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
+    # MNR Create GeoDataFrame form CSV
+    csv_gdb = create_points_from_input_csv(inputcsv, VAD_schema_name, VAD_DB_Connections, outputpath,
                                            inputfilename)
-    # # MNR calling
-    # mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
-    #                                      mnrfilename)
-    code = [r for i, r in csv_gdb.iterrows()]
-    p = Pool()
-    result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
-    p.close()
-    p.join()
+
+    # Multiprocessing MNR
+    # code = [r for i, r in csv_gdb.iterrows()]
+    # p = Pool()
+    # result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
+    # p.close()
+    # p.join()
 
     mnrEndTime = datetime.now()
-
-    # MNR to CSV
-    # pgDBToCsvMnr(engine, mnrfilename, outputpath)
 
     # file execution time calculation
     mnrTotalTime = mnrEndTime - mnrStartTime
 
+    # Multiprocessing VAD
     vadStartTime = datetime.now()
 
+    # VAD Point create calling
+
+    csv_gdbVAD = create_points_from_input_csv_VAD(inputcsv, VAD_schema_name, VAD_DB_Connections,
+                                                  outputpath, inputfilename)
     # VAD calling
     # for i in country_language_code:
-    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
-    # # # VAD MAX
+    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdbVAD, i)
+
+    para = []
+
+    for language in country_language_code:
+        for i, r in csv_gdbVAD.iterrows():
+            para.append([r, language])
+
+    pvad = Pool()
+    resultVAD = pvad.starmap(vad_csv_buffer_db_apt_fuzzy_matching, para)
+    pvad.close()
+    pvad.join()
+
+    # # VAD MAX
+
     # vad_parse_schema_data_postgres_max(engine, vad_filename)
     # print("vad_parse_schema_data_postgres_max..............Done !")
     #
@@ -774,6 +788,9 @@ if __name__ == '__main__':
     vadTotalTime = vadEnd_time - vadStartTime
 
     # logfile message input
+    logging.warning(
+        '\n 1. Input CSV Path : {} \n 3. output CSV Path : {} \n 2. MNR Schema Name : {}'.format(inputcsv, outputpath,
+                                                                                                 MNR_schema_name))
     logging.warning('MNR execution time:{},VAD execution time:{}'.format(mnrTotalTime, vadTotalTime))
 
     print("ASF_present_in_VAD_only..............Done !")
