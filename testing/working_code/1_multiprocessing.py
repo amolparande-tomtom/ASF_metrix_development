@@ -763,7 +763,6 @@ if __name__ == '__main__':
     resultVAD = pvad.starmap(vad_csv_buffer_db_apt_fuzzy_matching, para)
     pvad.close()
     pvad.join()
-
     # # VAD MAX
 
     # vad_parse_schema_data_postgres_max(engine, vad_filename)
