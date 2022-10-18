@@ -581,7 +581,7 @@ UserID = "postgres"
 PassWord = "postgres"
 
 # Local DB connection
-engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "/" + DataBase
+# engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "/" + DataBase
 
 if __name__ == '__main__':
     # input files
@@ -625,13 +625,7 @@ if __name__ == '__main__':
 
     csv_gdbVAD = create_points_from_input_csv_VAD(inputcsv, VAD_schema_name, VAD_DB_Connections,
                                                   outputpath, inputfilename)
-
     para = []
-
-    # # Old Code
-    # for language in country_language_code:
-    #     for i, r in csv_gdbVAD.iterrows():
-    #         para.append([r, language])
 
     for i, r in csv_gdbVAD.iterrows():
         para.append([r, country_language_code])
@@ -646,8 +640,6 @@ if __name__ == '__main__':
 
     # path = outputpath + fileNameWindowS
 
-    vad_parse_schema_data_csv_max(outputpath,fileNameWindowS, inputfilename )
-
     # end Time calculation
     vadEnd_time = datetime.now()
 
@@ -657,7 +649,6 @@ if __name__ == '__main__':
     logging.warning(
         '\n 1. Input CSV Path : {} \n 2. output CSV Path : {} \n 3. MNR Schema Name : {} \n 4. VAD Schema Name : {}'.format(
             inputcsv, outputpath, MNR_schema_name, VAD_schema_name))
-
 
     logging.warning('MNR execution time:{},VAD execution time:{}'.format(mnrTotalTime, vadTotalTime))
 

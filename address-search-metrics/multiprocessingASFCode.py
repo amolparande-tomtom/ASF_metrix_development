@@ -313,8 +313,8 @@ def csvFileWriter(pandasDataFrame, filename, outputpath):
         pandasDataFrame.to_csv(outputpath + filename, mode='a', header=False, index=False, encoding="utf-8")
 
 def vad_csv_buffer_db_apt_fuzzy_matching(r, language_code):
-    schema_data = vad_query_for_one_record(r.db_url, r, r.schema_name, language_code)
-    schema_data['language_code'] = language_code
+    schema_data = vad_query_for_one_record(r.db_url, r, language_code)
+    # schema_data['language_code'] = language_code
     # fuzzy VAD function
     vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
                                hnr_street_name, integer_hnr, integer_postal_code, distance)
@@ -328,8 +328,37 @@ def vad_csv_buffer_db_apt_fuzzy_matching(r, language_code):
         vad_parse_schema_data(schema_data, r.outputpath, r.filename)
 
 
+def vad_query_for_one_record(db_url,r,language_code):
+    DataFrame = []
+    # This Need to Be create Parameter
+    # language_code
+    # language_code = ['nl-Latn', 'fr-Latn', 'de-Latn']
+    for l in language_code:
+        buffer = r.provider_distance_genesis * 0.00001
 
-def vad_query_for_one_record(db_url, r, schema_name, language_code):
+        new_VAD_intersect_sql = Buffer_ST_DWithin_VAD_intersect_sql.replace("{point_geometry}", str(r.geometry)) \
+            .replace("{schema_name_vad}", r.schema_name) \
+            .replace("{Buffer_in_Meter}", str(buffer)) \
+            .replace("{language_code}", l)
+
+        schemadata = pd.read_sql_query(new_VAD_intersect_sql, postgres_db_connection(db_url))
+        schemadata['searched_query'] = r.searched_query
+        schemadata['geometry'] = r.geometry
+        schemadata['SRID'] = r.SR_ID
+        schemadata['provider_distance_orbis'] = r.provider_distance_orbis
+        schemadata['provider_distance_genesis'] = r.provider_distance_genesis
+        # replace "distance" less than 1 value with 1
+        schemadata.loc[schemadata['distance'] < 1, 'distance'] = 1
+
+        msk = schemadata[['housenumber', 'streetname', 'postalcode', 'placename']].notnull().all(axis=1)
+        newSchemaData = schemadata[msk]
+        if not newSchemaData.empty:
+            DataFrame.append(newSchemaData)
+    if len(DataFrame) != 0:
+        schema_data = pd.concat(DataFrame)
+        return schema_data
+
+def vad_query_for_one_recordold(db_url, r,language_code):
     buffer = r.provider_distance_orbis * 0.00001
     # print("SR_ID:", r.SR_ID, "language_code:", language_code, "provider_distance_orbis:", r.provider_distance_orbis,
     #       "And", buffer)
@@ -430,7 +459,36 @@ def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
                                             ).round(4)
 
 
+
 def vad_parse_schema_data(schema_data, outputpath, filename):
+    schema_data["SRID_count"] = schema_data.SRID.size
+    # VAD_intersection CSV Dump Area
+    csvFileWriter(schema_data, "VAD_intersection_" + filename + ".csv", outputpath)
+
+    group_max = schema_data.groupby('SRID')['Percentage'].max()
+    pd_group_max = pd.DataFrame(group_max)
+    mx_apt_delta = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage']).sort_values('SRID')
+
+    if mx_apt_delta['Percentage'].value_counts().values.max() > 1:
+            min_distance = mx_apt_delta['distance'].min()
+            distance_mx_apt_delta = mx_apt_delta.loc[mx_apt_delta['distance'] == min_distance]
+            # get First Values
+            if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
+                distance_mx_apt_delta = distance_mx_apt_delta.head(1)
+                # Writing to CSV
+                csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
+
+            else:
+                # Writing to CSV
+                csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
+    else:
+        for indx, row in mx_apt_delta.iterrows():
+            if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
+                new_df = pd.DataFrame(row).transpose()
+                csvFileWriter(new_df, "VAD_MAX_" + filename + ".csv", outputpath)
+
+
+def vad_parse_schema_dataOLD(schema_data, outputpath, filename):
     schema_data["SRID_count"] = schema_data.SRID.size
     for indx, row in schema_data.iterrows():
         if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
@@ -523,7 +581,7 @@ UserID = "postgres"
 PassWord = "postgres"
 
 # Local DB connection
-engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "/" + DataBase
+# engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "/" + DataBase
 
 if __name__ == '__main__':
     # input files
@@ -567,12 +625,10 @@ if __name__ == '__main__':
 
     csv_gdbVAD = create_points_from_input_csv_VAD(inputcsv, VAD_schema_name, VAD_DB_Connections,
                                                   outputpath, inputfilename)
-
     para = []
 
-    for language in country_language_code:
-        for i, r in csv_gdbVAD.iterrows():
-            para.append([r, language])
+    for i, r in csv_gdbVAD.iterrows():
+        para.append([r, country_language_code])
 
     pvad = Pool()
     resultVAD = pvad.starmap(vad_csv_buffer_db_apt_fuzzy_matching, para)
@@ -584,8 +640,6 @@ if __name__ == '__main__':
 
     # path = outputpath + fileNameWindowS
 
-    vad_parse_schema_data_csv_max(outputpath,fileNameWindowS, inputfilename )
-
     # end Time calculation
     vadEnd_time = datetime.now()
 
@@ -595,7 +649,6 @@ if __name__ == '__main__':
     logging.warning(
         '\n 1. Input CSV Path : {} \n 2. output CSV Path : {} \n 3. MNR Schema Name : {} \n 4. VAD Schema Name : {}'.format(
             inputcsv, outputpath, MNR_schema_name, VAD_schema_name))
-
 
     logging.warning('MNR execution time:{},VAD execution time:{}'.format(mnrTotalTime, vadTotalTime))
 
