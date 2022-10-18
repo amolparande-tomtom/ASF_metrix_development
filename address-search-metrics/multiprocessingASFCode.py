@@ -313,19 +313,25 @@ def csvFileWriter(pandasDataFrame, filename, outputpath):
         pandasDataFrame.to_csv(outputpath + filename, mode='a', header=False, index=False, encoding="utf-8")
 
 def vad_csv_buffer_db_apt_fuzzy_matching(r, language_code):
+
     schema_data = vad_query_for_one_record(r.db_url, r, language_code)
     # schema_data['language_code'] = language_code
     # fuzzy VAD function
-    vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
-                               hnr_street_name, integer_hnr, integer_postal_code, distance)
-
-    # Writing csv Empty ASF
-    if schema_data.empty:
-        print("Data Empty")
-
     if not schema_data.empty:
-        # Writing CSV
+        vad_calculate_fuzzy_values(r, schema_data)
+
         vad_parse_schema_data(schema_data, r.outputpath, r.filename)
+
+        # # Writing csv Empty ASF
+        # if schema_data.empty:
+        #     print("Data Empty")
+        #
+        # if not schema_data.empty:
+        #     # Writing CSV
+        #     vad_parse_schema_data(schema_data, r.outputpath, r.filename)
+    else:
+        print("Errorr Empty")
+
 
 
 def vad_query_for_one_record(db_url,r,language_code):
@@ -355,8 +361,10 @@ def vad_query_for_one_record(db_url,r,language_code):
         if not newSchemaData.empty:
             DataFrame.append(newSchemaData)
     if len(DataFrame) != 0:
-        schema_data = pd.concat(DataFrame)
-        return schema_data
+        return pd.concat(DataFrame)
+    else:
+        return pd.DataFrame(DataFrame)
+
 
 def vad_query_for_one_recordold(db_url, r,language_code):
     buffer = r.provider_distance_orbis * 0.00001
@@ -378,8 +386,7 @@ def vad_query_for_one_recordold(db_url, r,language_code):
     return schema_data
 
 
-def vad_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_place_name, mnr_postal_code,
-                               hnr_street_name, integer_hnr, integer_postal_code, distance):
+def vad_calculate_fuzzy_values(r, schema_data):
     for n, j in schema_data.iterrows():
         searched_query = str(r.searched_query)
         hsn = str(j.housenumber)
@@ -476,15 +483,21 @@ def vad_parse_schema_data(schema_data, outputpath, filename):
             if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
                 distance_mx_apt_delta = distance_mx_apt_delta.head(1)
                 # Writing to CSV
+                print("##############Printed VAD DATA######################")
+                print(distance_mx_apt_delta.SRID)
                 csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
 
             else:
                 # Writing to CSV
+                print("##############Printed VAD DATA######################")
+                print(distance_mx_apt_delta.SRID)
                 csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
     else:
         for indx, row in mx_apt_delta.iterrows():
             if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
                 new_df = pd.DataFrame(row).transpose()
+                print("##############Printed VAD DATA######################")
+                print(new_df.SRID)
                 csvFileWriter(new_df, "VAD_MAX_" + filename + ".csv", outputpath)
 
 
@@ -540,27 +553,27 @@ def vad_parse_schema_data_csv_max(outputpath, fileNameWindowS, inputfilename):
 ##########################################################################
 
 # INPUT
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/0_input_csv/4_Adoc/fra_asf_sample_.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/0_input/bra_asf_sample_.csv'
 
-outputpath = '/Users/parande/Documents/4_ASF_Metrix/2_output/FRA/'
+outputpath = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/1_Output/'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 # LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
-LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-001.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
+LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-002.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 
 # VAD DB URL
-VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+# VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 # Amedias
-# VAD_DB_Connections = "postgresql://10.137.173.68/ggg?user=ggg&password=ok"
+VAD_DB_Connections = "postgresql://10.137.173.72/ggg?user=ggg&password=ok"
 
 # schemas
-MNR_schema_name = '_2022_09_008_eur_fra_fra'
+MNR_schema_name = '_2022_09_009_lam_bra_bra'
 
-VAD_schema_name = 'eur_fra_20221008_cw40'
+VAD_schema_name = 'ade_amedias_0_22_41_sam_bra'
 
 # language_code
-country_language_code = ['nl-Latn', 'fr-Latn', 'de-Latn']
+country_language_code = ['pt-Latn', 'es-Latn']
 
 # user weightage
 mnr_hnr = 15
@@ -602,14 +615,14 @@ if __name__ == '__main__':
     mnrStartTime = datetime.now()
 
     # MNR Create GeoDataFrame form CSV
-    csv_gdbMNR = create_points_from_input_csv(inputcsv, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
-                                              inputfilename)
-
-    code = [r for i, r in csv_gdbMNR.iterrows()]
-    p = Pool()
-    result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
-    p.close()
-    p.join()
+    # csv_gdbMNR = create_points_from_input_csv(inputcsv, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
+    #                                           inputfilename)
+    #
+    # code = [r for i, r in csv_gdbMNR.iterrows()]
+    # p = Pool()
+    # result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
+    # p.close()
+    # p.join()
 
     mnrEndTime = datetime.now()
 
@@ -630,11 +643,13 @@ if __name__ == '__main__':
     for i, r in csv_gdbVAD.iterrows():
         para.append([r, country_language_code])
 
+        # vad_csv_buffer_db_apt_fuzzy_matching(r, country_language_code)
+
     pvad = Pool()
     resultVAD = pvad.starmap(vad_csv_buffer_db_apt_fuzzy_matching, para)
     pvad.close()
     pvad.join()
-    # # VAD MAX
+    # VAD MAX
 
     fileNameWindowS = "VAD_intersection_" + inputfilename + ".csv"
 
