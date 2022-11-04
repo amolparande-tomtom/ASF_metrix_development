@@ -621,8 +621,8 @@ outputpath = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/1_Output/'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
-# LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
-LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-001.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
+LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
+# MNR_DB_Country_Connections = "postgresql://caprod-cpp-pgmnr-001.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 
 # VAD DB URL
 #VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
