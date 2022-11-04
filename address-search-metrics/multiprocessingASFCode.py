@@ -10,6 +10,7 @@ import unidecode
 from datetime import datetime
 import logging
 from multiprocessing import Pool
+from math import sin, cos, sqrt, atan2, radians
 
 # MNR SQL Query
 Buffer_ST_DWithin_mnr_osm_intersect_sql = """
@@ -26,8 +27,10 @@ Buffer_ST_DWithin_mnr_osm_intersect_sql = """
                                             postal_code,
                                             building_name.name as building_name,
                                             hsn,
-                                            round(ST_Distance(ST_Transform(mnr_apt.geom,900913),ST_Transform(ST_GeomFromText('{point_geometry}', 4326),900913)))as Distance,
-                                            ST_AsText(mnr_apt.geom) as geom
+                                            round(ST_Distance(ST_Transform(mnr_apt.geom,900913),ST_Transform(ST_GeomFromText('{point_geometry}', 4326),900913)))as old_Distance,
+                                            ST_AsText(mnr_apt.geom) as geom,
+                                            ST_X(mnr_apt.geom) as mnr_longitude,
+                                            ST_Y(mnr_apt.geom) as mnr_latitude
                                             from
                                             "{schema_name}".mnr_apt
                                             inner join "{schema_name}".mnr_apt2addressset
@@ -68,8 +71,10 @@ Buffer_ST_DWithin_VAD_intersect_sql = """
                                         tags -> 'addr:street:{language_code}' as StreetName,
                                         tags ->'addr:postcode:{language_code}' as PostalCode,
                                         tags -> 'addr:city:{language_code}' as PlaceName,
-                                        round(ST_Distance(ST_Transform(way,900913),ST_Transform(ST_GeomFromText('{point_geometry}', 4326),900913)))as Distance,
-                                        ST_AsText(way) as way
+                                        round(ST_Distance(ST_Transform(way,900913),ST_Transform(ST_GeomFromText('{point_geometry}', 4326),900913)))as old_Distance,
+                                        ST_AsText(way) as way,
+                                        ST_X(way) as vad_longitude,
+                                        ST_Y(way) as vad_latitude
                                         from "{schema_name_vad}".planet_osm_point
                                         WHERE (CAST(planet_osm_point.tags AS TEXT) LIKE '%address_point%')
                                         and 
@@ -132,6 +137,53 @@ def create_points_from_input_csv_VAD(csv_path, schema_name, db_url, outputpath, 
     return gpd.GeoDataFrame(df, crs="EPSG:4326")
 
 
+def truncate(n: float, decimals: int = 0) -> int:
+    """Simple function which truncates an incoming float value (n) and returns its integer value
+    based on its multiplier value, later divided by the same multiplier value.
+    :param n: Input numerical value, float type.
+    :type n: flaot
+    :param decimals: Input integer which defines the number of decimal point to return, defaults to 0
+    :type decimals: int, optional
+    :return:Output integer value after the truncate process of the input value (n).
+    :rtype: int
+    """
+
+    multiplier = 10 ** decimals
+    return int(n * multiplier) / multiplier
+
+
+def haversine_distance(lt1: float,
+                       ln1: float,
+                       lt2: float,
+                       ln2: float) -> float:
+    """Function which calculates the distance in meters between two XY coodinates. The function requires
+    the latitude and longitude for each point. At the end of the function, we truncate the output distance
+    value with a maximun of 4 decimal points.
+    :param lt1: Latitude value of first coordinate point.
+    :type lt1: float
+    :param ln1: Longitude value of first coordinate point.
+    :type ln1: float
+    :param lt2: Latitude value of second coordinate point.
+    :type lt2: float
+    :param ln2: Longitude value of second coordinate point.
+    :type ln2: float
+    :return: Distance between point in meters.
+    :rtype: float
+    """
+
+    R = 6373.0  # approximate radius of earth in km
+    lat1 = radians(lt1)
+    lon1 = radians(ln1)
+    lat2 = radians(lt2)
+    lon2 = radians(ln2)
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    distance = truncate(R * c, 4) * 1000
+    return distance
+
+
 def mnr_csv_buffer_db_apt_fuzzy_matching(r):
     schema_data = mnr_query_for_one_record(r.db_url, r, r.schema_name)
 
@@ -163,6 +215,15 @@ def mnr_query_for_one_record(db_url, r, schema_name):
     schema_data['SRID'] = r.SR_ID
     schema_data['provider_distance_orbis'] = r.provider_distance_orbis
     schema_data['provider_distance_genesis'] = r.provider_distance_genesis
+    schema_data['lat'] = r.lat
+    schema_data['lon'] = r.lon
+    # New Distance value
+    schema_data['distance'] = 0
+    for a, b in schema_data.iterrows():
+        # schema_data.distance[a] = haversine_distance(r.lat, r.lon, b.mnr_latitude, b.mnr_longitude)
+        # New
+        schema_data.at[a, 'distance'] = haversine_distance(r.lat, r.lon, b.mnr_latitude, b.mnr_longitude)
+
     # replace "distance" less than 1 value with 1
     schema_data.loc[schema_data['distance'] < 1, 'distance'] = 1
     return schema_data
@@ -255,7 +316,7 @@ def mnr_calculate_fuzzy_values(r, schema_data, mnr_hnr, mnr_street_name, mnr_pla
 def mnr_parse_schema_data(schema_data, outputpath, filename):
     column_names = ["SRID", "country", "feat_id", "lang_code", "iso_lang_code", "notation",
                     "iso_script", "state_province_name", "place_name", "street_name", "postal_code",
-                    "building_name", "hsn", "distance", "geom", "searched_query", "geometry",
+                    "building_name", "hsn", "distance", "old_distance", "geom", "searched_query", "geometry",
                     "provider_distance_orbis", "provider_distance_genesis", "hnr_match",
                     "street_name_match", "place_name_match", "postal_code_name_match",
                     "hnr_street_name_match", "new_hnr_match", "new_postal_code_name_match",
@@ -312,8 +373,8 @@ def csvFileWriter(pandasDataFrame, filename, outputpath):
     else:
         pandasDataFrame.to_csv(outputpath + filename, mode='a', header=False, index=False, encoding="utf-8")
 
-def vad_csv_buffer_db_apt_fuzzy_matching(r, language_code):
 
+def vad_csv_buffer_db_apt_fuzzy_matching(r, language_code):
     schema_data = vad_query_for_one_record(r.db_url, r, language_code)
     # schema_data['language_code'] = language_code
     # fuzzy VAD function
@@ -333,8 +394,7 @@ def vad_csv_buffer_db_apt_fuzzy_matching(r, language_code):
         print("Errorr Empty")
 
 
-
-def vad_query_for_one_record(db_url,r,language_code):
+def vad_query_for_one_record(db_url, r, language_code):
     DataFrame = []
     # This Need to Be create Parameter
     # language_code
@@ -353,9 +413,12 @@ def vad_query_for_one_record(db_url,r,language_code):
         schemadata['SRID'] = r.SR_ID
         schemadata['provider_distance_orbis'] = r.provider_distance_orbis
         schemadata['provider_distance_genesis'] = r.provider_distance_genesis
+        # New distance by analytics
+        schemadata['distance'] = 0
+        for a, b in schemadata.iterrows():
+            schemadata.at[a, 'distance'] = haversine_distance(r.lat, r.lon, b.vad_latitude, b.vad_longitude)
         # replace "distance" less than 1 value with 1
         schemadata.loc[schemadata['distance'] < 1, 'distance'] = 1
-
         msk = schemadata[['housenumber', 'streetname', 'postalcode', 'placename']].notnull().all(axis=1)
         newSchemaData = schemadata[msk]
         if not newSchemaData.empty:
@@ -366,7 +429,7 @@ def vad_query_for_one_record(db_url,r,language_code):
         return pd.DataFrame(DataFrame)
 
 
-def vad_query_for_one_recordold(db_url, r,language_code):
+def vad_query_for_one_recordold(db_url, r, language_code):
     buffer = r.provider_distance_orbis * 0.00001
     # print("SR_ID:", r.SR_ID, "language_code:", language_code, "provider_distance_orbis:", r.provider_distance_orbis,
     #       "And", buffer)
@@ -466,7 +529,6 @@ def vad_calculate_fuzzy_values(r, schema_data):
                                             ).round(4)
 
 
-
 def vad_parse_schema_data(schema_data, outputpath, filename):
     schema_data["SRID_count"] = schema_data.SRID.size
     # VAD_intersection CSV Dump Area
@@ -477,21 +539,21 @@ def vad_parse_schema_data(schema_data, outputpath, filename):
     mx_apt_delta = pd.merge(schema_data, pd_group_max, on=['SRID', 'Percentage']).sort_values('SRID')
 
     if mx_apt_delta['Percentage'].value_counts().values.max() > 1:
-            min_distance = mx_apt_delta['distance'].min()
-            distance_mx_apt_delta = mx_apt_delta.loc[mx_apt_delta['distance'] == min_distance]
-            # get First Values
-            if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
-                distance_mx_apt_delta = distance_mx_apt_delta.head(1)
-                # Writing to CSV
-                print("##############Printed VAD DATA######################")
-                print(distance_mx_apt_delta.SRID)
-                csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
+        min_distance = mx_apt_delta['distance'].min()
+        distance_mx_apt_delta = mx_apt_delta.loc[mx_apt_delta['distance'] == min_distance]
+        # get First Values
+        if distance_mx_apt_delta['Percentage'].value_counts().values.max() != 1:
+            distance_mx_apt_delta = distance_mx_apt_delta.head(1)
+            # Writing to CSV
+            print("##############Printed VAD DATA######################")
+            print(distance_mx_apt_delta.SRID)
+            csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
 
-            else:
-                # Writing to CSV
-                print("##############Printed VAD DATA######################")
-                print(distance_mx_apt_delta.SRID)
-                csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
+        else:
+            # Writing to CSV
+            print("##############Printed VAD DATA######################")
+            print(distance_mx_apt_delta.SRID)
+            csvFileWriter(distance_mx_apt_delta, "VAD_MAX_" + filename + ".csv", outputpath)
     else:
         for indx, row in mx_apt_delta.iterrows():
             if row.housenumber != 0 or row.streetname != 'NODATA' or row.postalcode != 0 or row.placename != 'NODATA':
@@ -553,27 +615,27 @@ def vad_parse_schema_data_csv_max(outputpath, fileNameWindowS, inputfilename):
 ##########################################################################
 
 # INPUT
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/0_input/bra_asf_sample_.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/0_input/fra_asf_not_match_sample_.csv'
 
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/1_Output/'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 # LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
-LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-002.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
+LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-001.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 
 # VAD DB URL
-# VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
+#VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 # Amedias
-VAD_DB_Connections = "postgresql://10.137.173.72/ggg?user=ggg&password=ok"
+VAD_DB_Connections = "postgresql://10.137.173.68/ggg?user=ggg&password=ok"
 
 # schemas
-MNR_schema_name = '_2022_09_009_lam_bra_bra'
+MNR_schema_name = '_2022_09_011_eur_fra_fra'
 
-VAD_schema_name = 'ade_amedias_0_22_41_sam_bra'
+VAD_schema_name = 'ade_amedias_0_22_43_eur_fra'
 
 # language_code
-country_language_code = ['pt-Latn', 'es-Latn']
+country_language_code = ['nl-Latn', 'fr-Latn', 'de-Latn']
 
 # user weightage
 mnr_hnr = 15
@@ -584,17 +646,6 @@ hnr_street_name = 25
 integer_hnr = 5
 integer_postal_code = 2.5
 distance = 25
-
-# Local DB connection
-
-Host = "localhost"
-DataBase = "postgres"
-Port = "5433"
-UserID = "postgres"
-PassWord = "postgres"
-
-# Local DB connection
-# engine = "postgresql://" + UserID + ":" + PassWord + "@" + Host + ":" + Port + "/" + DataBase
 
 if __name__ == '__main__':
     # input files
@@ -615,21 +666,27 @@ if __name__ == '__main__':
     mnrStartTime = datetime.now()
 
     # MNR Create GeoDataFrame form CSV
-    # csv_gdbMNR = create_points_from_input_csv(inputcsv, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
-    #                                           inputfilename)
+    csv_gdbMNR = create_points_from_input_csv(inputcsv, MNR_schema_name, LAM_MEA_OCE_SEA_MNR_DB_Connections, outputpath,
+                                              inputfilename)
+
+    # ######### MNR single thread calling #############
     #
-    # code = [r for i, r in csv_gdbMNR.iterrows()]
-    # p = Pool()
-    # result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
-    # p.close()
-    # p.join()
+    # for i, r in csv_gdbMNR.iterrows():
+    #     mnr_csv_buffer_db_apt_fuzzy_matching(r)
+    #
+    # ###############################################
+
+    # # Multiprocessing call MNR
+    code = [r for i, r in csv_gdbMNR.iterrows()]
+    p = Pool()
+    result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
+    p.close()
+    p.join()
 
     mnrEndTime = datetime.now()
-
-    # file execution time calculation
+    #
+    # # file execution time calculation
     mnrTotalTime = mnrEndTime - mnrStartTime
-
-    ################## VAD calling ######################
 
     # Multiprocessing VAD
     vadStartTime = datetime.now()
@@ -638,22 +695,29 @@ if __name__ == '__main__':
 
     csv_gdbVAD = create_points_from_input_csv_VAD(inputcsv, VAD_schema_name, VAD_DB_Connections,
                                                   outputpath, inputfilename)
+
+    # # ######### VAD single thread calling #############
+    # for i, r in csv_gdbVAD.iterrows():
+    #     # para.append([r, country_language_code])
+    #     vad_csv_buffer_db_apt_fuzzy_matching(r, country_language_code)
+    # ###############################################
+
+    ###################### VAD calling Multiprocessing ######################
+
     para = []
 
     for i, r in csv_gdbVAD.iterrows():
         para.append([r, country_language_code])
 
-        # vad_csv_buffer_db_apt_fuzzy_matching(r, country_language_code)
-
     pvad = Pool()
     resultVAD = pvad.starmap(vad_csv_buffer_db_apt_fuzzy_matching, para)
     pvad.close()
     pvad.join()
-    # VAD MAX
+
 
     fileNameWindowS = "VAD_intersection_" + inputfilename + ".csv"
 
-    # path = outputpath + fileNameWindowS
+    path = outputpath + fileNameWindowS
 
     # end Time calculation
     vadEnd_time = datetime.now()
