@@ -613,30 +613,22 @@ def vad_parse_schema_data_csv_max(outputpath, fileNameWindowS, inputfilename):
 ######################### Input Area #####################################
 ##########################################################################
 ##########################################################################
-
 # INPUT
 inputcsv = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/0_input/fra_asf_not_match_sample_.csv'
-
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/1_Output/'
-
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 # MNR_DB_Country_Connections = "postgresql://caprod-cpp-pgmnr-001.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
-
 # VAD DB URL
-#VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 # Amedias
 VAD_DB_Connections = "postgresql://10.137.173.68/ggg?user=ggg&password=ok"
-
 # schemas
 MNR_schema_name = '_2022_09_011_eur_fra_fra'
 
 VAD_schema_name = 'ade_amedias_0_22_43_eur_fra'
-
 # language_code
 country_language_code = ['nl-Latn', 'fr-Latn', 'de-Latn']
-
 # user weightage
 mnr_hnr = 15
 mnr_street_name = 20

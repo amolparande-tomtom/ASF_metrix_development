@@ -563,9 +563,9 @@ if __name__ == '__main__':
     # MNR calling
     mnr_csv_buffer_db_apt_fuzzy_matching(csv_gdb, MNR_schema_name, EUR_SO_NAM_MNR_DB_Connections, outputpath,
                                          mnrfilename)
-    # # VAD calling
-    # for i in country_language_code:
-    #     vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
+    # VAD calling
+    for i in country_language_code:
+        vad_csv_buffer_db_apt_fuzzy_matching(csv_gdb, VAD_schema_name, VAD_DB_Connections, outputpath, vad_filename, i)
     # # VAD MAX
     # vad_parse_schema_data_postgres_max(engine, vad_filename)
     # print("vad_parse_schema_data_postgres_max..............Done !")

@@ -615,27 +615,27 @@ def vad_parse_schema_data_csv_max(outputpath, fileNameWindowS, inputfilename):
 ##########################################################################
 
 # INPUT
-inputcsv = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/0_input/fra_asf_sample_.csv'
+inputcsv = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/0_input/fra_asf_not_match_sample_.csv'
 
 outputpath = '/Users/parande/Documents/4_ASF_Metrix/6_Multiprocessing/1_Output/'
 
 # MNR DB URL
 EUR_SO_NAM_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-005.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 # LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-006.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
-LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-002.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
+LAM_MEA_OCE_SEA_MNR_DB_Connections = "postgresql://caprod-cpp-pgmnr-001.flatns.net/mnr?user=mnr_ro&password=mnr_ro"
 
 # VAD DB URL
 #VAD_DB_Connections = "postgresql://vad3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg_ro&password=ggg_ro"
 # Amedias
-VAD_DB_Connections = "postgresql://orbis3g-prod.openmap.maps.az.tt3.com/ggg?user=ggg&password=ok"
+VAD_DB_Connections = "postgresql://10.137.173.68/ggg?user=ggg&password=ok"
 
 # schemas
-MNR_schema_name = '_2022_09_010_lam_bra_bra'
+MNR_schema_name = '_2022_09_011_eur_fra_fra'
 
-VAD_schema_name = 'eur_fra_20221015_cw41'
+VAD_schema_name = 'ade_amedias_0_22_43_eur_fra'
 
 # language_code
-country_language_code = ['pt-Latn', 'es-Latn']
+country_language_code = ['nl-Latn', 'fr-Latn', 'de-Latn']
 
 # user weightage
 mnr_hnr = 15
@@ -676,12 +676,12 @@ if __name__ == '__main__':
     #
     # ###############################################
 
-    # Multiprocessing call MNR
-    # code = [r for i, r in csv_gdbMNR.iterrows()]
-    # p = Pool()
-    # result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
-    # p.close()
-    # p.join()
+    # # Multiprocessing call MNR
+    code = [r for i, r in csv_gdbMNR.iterrows()]
+    p = Pool()
+    result = p.map(mnr_csv_buffer_db_apt_fuzzy_matching, code)
+    p.close()
+    p.join()
 
     mnrEndTime = datetime.now()
     #
@@ -697,22 +697,22 @@ if __name__ == '__main__':
                                                   outputpath, inputfilename)
 
     # # ######### VAD single thread calling #############
-    for i, r in csv_gdbVAD.iterrows():
-        # para.append([r, country_language_code])
-        vad_csv_buffer_db_apt_fuzzy_matching(r, country_language_code)
+    # for i, r in csv_gdbVAD.iterrows():
+    #     # para.append([r, country_language_code])
+    #     vad_csv_buffer_db_apt_fuzzy_matching(r, country_language_code)
     # ###############################################
 
     ###################### VAD calling Multiprocessing ######################
 
-    # para = []
-    #
-    # for i, r in csv_gdbVAD.iterrows():
-    #     para.append([r, country_language_code])
-    #
-    # pvad = Pool()
-    # resultVAD = pvad.starmap(vad_csv_buffer_db_apt_fuzzy_matching, para)
-    # pvad.close()
-    # pvad.join()
+    para = []
+
+    for i, r in csv_gdbVAD.iterrows():
+        para.append([r, country_language_code])
+
+    pvad = Pool()
+    resultVAD = pvad.starmap(vad_csv_buffer_db_apt_fuzzy_matching, para)
+    pvad.close()
+    pvad.join()
 
 
     fileNameWindowS = "VAD_intersection_" + inputfilename + ".csv"
