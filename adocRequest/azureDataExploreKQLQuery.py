@@ -83,6 +83,15 @@ yearList = provideDF["Year"].unique().tolist()
 # unique Country List
 countryISOList = provideDF["country"].unique().tolist()
 
+# use the str.zfill() method to add a leading zero to single-digit numbers
+adxdf["Week"] = adxdf["Week"].astype(str)
+adxdf["Week"] = adxdf["Week"].str.zfill(2).astype(str)
+# Concatenation
+adxdf["Week Year"] = adxdf['Year'].astype(str)+' '+adxdf["Week"].astype(str)
+adxdf = adxdf.sort_values(['Year', 'Week'], ascending=[True, True])
+
+adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
+
 
 # # A. Get Max Week in Year Per Country
 # providerIDYearWeek = adxdf[(adxdf.Measurement == 'API')
@@ -101,7 +110,6 @@ countryISOList = provideDF["country"].unique().tolist()
 
 
 ############## Working Code ###############
-
 def getMaxWeekinYearPerCountry(adxdf: pd.DataFrame, Measurement: str, Year: str, providerId: str,
                                metric: str) -> pd.DataFrame:
     # Get Max Week in Year Per Country
@@ -151,7 +159,6 @@ def finalGetMaxWeekinYearPerCountry(adxdf: pd.DataFrame, Measurement: str, provi
         # set the original DataFrame to the empty DataFrame
         df = empty_df
         return df
-
 
 
 finalDataFrame = []
@@ -204,7 +211,7 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Genesis', 'ASF').empty:
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Genesis', 'ASF'))
 
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Genesis', 'SSF').empty:
-        # GenesisApiSSF
+    # GenesisApiSSF
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Genesis', 'SSF'))
 
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Genesis', 'LSF').empty:
@@ -219,8 +226,7 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Genesis', 'APA').empty:
     # GenesisApiAPA
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Genesis', 'APA'))
 
-
-# Genesis API
+# Orbis API
 
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'ASF').empty:
     # OrbisApiAF
@@ -239,6 +245,26 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'PSF').empty:
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'APA').empty:
     # OrbisApiAPA
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'APA'))
+
+# Orbis MAP
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'ASF').empty:
+    # OrbisMAPASF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'ASF'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SSF').empty:
+    # OrbisMAPSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'SSF'))
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'LSF').empty:
+    # OrbisMAPLSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'LSF'))
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'PSF').empty:
+    # OrbisMAPPSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'PSF'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'APA').empty:
+    # OrbisMAPAPA
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'APA'))
 
 # Here API
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Here', 'ASF').empty:
@@ -292,7 +318,6 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Google', 'APA').empty:
     # GoogleApiAPA
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Google', 'APA'))
 
+powerBI = pd.concat(finalDataFrame)
 
-powerBI= pd.concat(finalDataFrame)
-
-powerBI.to_csv("/Users/parande/Documents/2_KQL/allPowerBIProvider.csv")
+powerBI.to_csv("/Users/parande/Documents/2_KQL/SearchMetrixPowerBIProvider.csv")
