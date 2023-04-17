@@ -3,6 +3,24 @@ from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from azure.kusto.data.helpers import dataframe_from_result_table
 import os
 
+path= "/Users/parande/Documents/2_KQL/csv/"
+allSearchDump= "AllSearchMetrixPowerBIProvider.csv"
+searchMetrix = "SearchMetrixPowerBIProvider.csv"
+
+searchPowerBI = os.path.join(path, searchMetrix)
+allData = os.path.join(path, allSearchDump)
+
+
+def deleteFilesIfExist(path):
+    try:
+        # Check if the files exist and delete them
+        if os.path.exists(os.path.join(path, "SearchMetrixPowerBIProvider.csv")):
+            os.remove(os.path.join(path, "SearchMetrixPowerBIProvider.csv"))
+        if os.path.exists(os.path.join(path, "AllSearchMetrixPowerBIProvider.csv")):
+            os.remove(os.path.join(path, "AllSearchMetrixPowerBIProvider.csv"))
+        print("Files deleted successfully")
+    except Exception as e:
+        print("An error occurred while deleting the files:", e)
 
 def csvFileWriter(pandasDataFrame, filename, outputpath):
     if not os.path.exists(outputpath + filename):
@@ -89,8 +107,11 @@ adxdf["Week"] = adxdf["Week"].str.zfill(2).astype(str)
 # Concatenation
 adxdf["Week Year"] = adxdf['Year'].astype(str)+' '+adxdf["Week"].astype(str)
 adxdf = adxdf.sort_values(['Year', 'Week'], ascending=[True, True])
+# Delete Existing Files
+deleteFilesIfExist(path)
 
-adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
+# Dump All ADX Data
+adxdf.to_csv(allData)
 
 
 # # A. Get Max Week in Year Per Country
@@ -320,4 +341,4 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Google', 'APA').empty:
 
 powerBI = pd.concat(finalDataFrame)
 
-powerBI.to_csv("/Users/parande/Documents/2_KQL/SearchMetrixPowerBIProvider.csv")
+powerBI.to_csv(searchPowerBI)
