@@ -4,10 +4,12 @@ from azure.kusto.data.helpers import dataframe_from_result_table
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 import os
 import datetime
+import numpy as np
 
 path = "/Users/parande/Documents/2_KQL/csv"
 AllSearchMetrixPowerBIProvider = "AllSearchMetrixPowerBIProvider.csv"
 searchMetrixPowerBIProvider = "SearchMetrixPowerBIProvider.csv"
+
 
 def csvFileWriter(pandasDataFrame, filename, outputpath):
     if not os.path.exists(outputpath + filename):
@@ -125,8 +127,14 @@ adxdf = adxdf.sort_values(['Year', 'Week'], ascending=[True, True])
 # Convert the DataFrame to a CSV string
 pdDataFrameAdxdf = adxdf.to_csv(index=False)
 
+
+##############################################################################
+# Write data inti Azure Data Storage
+# Layer Name :AllSearchMetrixPowerBIProvider
+##############################################################################
+
 # Writing "AllSearchMetrixPowerBIProvider"" file in to Azure Blob Storage
-uploadFileToAzureBlobAndRenameExistngFile(AllSearchMetrixPowerBIProvider, container_name, connect_str, pdDataFrameAdxdf)
+# uploadFileToAzureBlobAndRenameExistngFile(AllSearchMetrixPowerBIProvider, container_name, connect_str, pdDataFrameAdxdf)
 
 
 # # A. Get Max Week in Year Per Country
@@ -359,8 +367,54 @@ powerBI = pd.concat(finalDataFrame)
 # Dumping SearchMetrixPowerBIProvider to Local code
 # powerBI.to_csv("/Users/parande/Documents/2_KQL/SearchMetrixPowerBIProvider.csv")
 
+
+pivot_table = powerBI[['country', 'metric', 'Measurement', 'provider_id', 'mean']]
+
+# concatenate two columns and create a new column
+pivot_table['provider_id_Measurement'] = pivot_table['provider_id'] + '-' + pivot_table['Measurement']
+
+# Pivot the data frame
+pivotTableData = pd.pivot_table(pivot_table, values='mean', index=['country', 'metric'],
+                                columns='provider_id_Measurement').reset_index()
+
+# identify columns with "_matchPer" suffix
+match_cols = [col for col in pivotTableData.columns if col not in ('country', 'metric')]
+
+# create new column "HightMatch" or winner each Score and "Value_From Column"
+pivotTableData['Winner'] = pivotTableData[match_cols].max(axis=1)
+pivotTableData['Winner Score'] = pivotTableData[match_cols].idxmax(axis=1)
+
+# identify the column(s) containing None values
+null_cols = pivotTableData.columns[pivotTableData.isnull().any()]
+
+# replace the None values with a valid string value
+pivotTableData[null_cols] = pivotTableData[null_cols].fillna(0)
+
+# Calculate Deviation from Genesis MAP Orbis MAP
+
+pivotTableData['Deviation Genesis'] = pivotTableData['Genesis-MAP'] - pivotTableData['Winner']
+
+# Calculate Deviation from Orbis MAP
+pivotTableData['Deviation Orbis'] = pivotTableData['Orbis-MAP'] - pivotTableData['Winner']
+
+# Round the float columns to 2 decimal places
+pivotTableData = pivotTableData[
+    ['country', 'metric', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP', 'Genesis-API', 'Orbis-API', 'Google-API', 'Here-API',
+     'Bing-API', 'Winner', 'Winner Score', 'Deviation Genesis', 'Deviation Orbis']]
+
+
+# Dumping SearchMetrixPowerBIProviderPivotTable  to Local code
+pivotTableData.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTable.csv")
+
+
+# Azure Blob Storage Data Processing
 # Convert the DataFrame to a CSV string
 pdDataFrameAdxPowerBi = powerBI.to_csv(index=False)
 
-# Writing "AllSearchMetrixPowerBIProvider"" file in to Azure Blob Storage
-uploadFileToAzureBlobAndRenameExistngFile(searchMetrixPowerBIProvider, container_name, connect_str, pdDataFrameAdxPowerBi)
+##############################################################################
+# Write data inti Azure Data Storage
+# Layer Name :searchMetrixPowerBIProvider
+##############################################################################
+
+# Writing "searchMetrixPowerBIProvider"" file in to Azure Blob Storage
+# uploadFileToAzureBlobAndRenameExistngFile(searchMetrixPowerBIProvider, container_name, connect_str, pdDataFrameAdxPowerBi)
