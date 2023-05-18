@@ -10,6 +10,8 @@ path = "/Users/parande/Documents/2_KQL/csv"
 AllSearchMetrixPowerBIProvider = "AllSearchMetrixPowerBIProvider.csv"
 searchMetrixPowerBIProvider = "SearchMetrixPowerBIProvider.csv"
 
+SearchMetrixPowerBIProviderPivot = "SearchMetrixPowerBIProviderPivot.csv"
+
 def piovtTableFunctionSearchMetrixALL(powerBI):
     """
     :param powerBI: DatFrame
@@ -56,38 +58,66 @@ def piovtTableFunctionSearchMetrix(powerBI):
     :param powerBI: DatFrame
     :return: Pivote Table for Product Management
     """
-    pivot_table = powerBI[['country', 'release_version','metric', 'Measurement', 'provider_id', 'mean']]
+    pivot_table = powerBI[['country', 'ISO3_Country','release_version','metric', 'Measurement', 'provider_id', 'mean']]
     # concatenate two columns and create a new column
     pivot_table['provider_id_Measurement'] = pivot_table['provider_id'] + '-' + pivot_table['Measurement']
-    # Pivot the data frame
-    pivotTableData = pd.pivot_table(pivot_table, values='mean', index=['country', 'metric'],
+    # # Create Copy
+    # pivotTableProvider = pivot_table.copy()
+    #
+    # pivotTableProviderDuplicates = pivotTableProvider[['country', 'provider_id_Measurement','release_version']]
+    # rankCountry = pivotTableProviderDuplicates.drop_duplicates(subset=['country', 'provider_id_Measurement','release_version'])
+
+    # Pivot the DataFrame
+    pivotTableData = pd.pivot_table(pivot_table, values='mean', index=['country', 'ISO3_Country','metric'],
                                     columns='provider_id_Measurement').reset_index()
     # identify columns with "_matchPer" suffix
-    match_cols = [col for col in pivotTableData.columns if col not in ('country', 'metric')]
+    match_cols = [col for col in pivotTableData.columns if col not in ('country', 'ISO3_Country','metric')]
     # create new column "HightMatch" or winner each Score and "Value_From Column"
-    pivotTableData['Winner'] = pivotTableData[match_cols].max(axis=1)
-    pivotTableData['Winner Score'] = pivotTableData[match_cols].idxmax(axis=1)
+    pivotTableData['Winner Score'] = pivotTableData[match_cols].max(axis=1)
+    pivotTableData['Winner'] = pivotTableData[match_cols].idxmax(axis=1)
     # identify the column(s) containing None values
     null_cols = pivotTableData.columns[pivotTableData.isnull().any()]
     # replace the None values with a valid string value
     pivotTableData[null_cols] = pivotTableData[null_cols].fillna(0)
     # Calculate Deviation from Genesis MAP Orbis MAP
-    pivotTableData['Deviation Genesis'] = pivotTableData['Genesis-MAP'] - pivotTableData['Winner']
+    pivotTableData['Deviation Genesis'] = pivotTableData['Genesis-MAP'] - pivotTableData['Winner Score']
     # Calculate Deviation from Orbis MAP
-    pivotTableData['Deviation Orbis'] = pivotTableData['Orbis-MAP'] - pivotTableData['Winner']
+    pivotTableData['Deviation Orbis'] = pivotTableData['Orbis-MAP'] - pivotTableData['Winner Score']
     # Round the float columns to 2 decimal places
     # Remove Duplicate Base on Multiple columns
     powerBIDuplicates = powerBI[['country', 'country_rank']]
     rankCountry = powerBIDuplicates.drop_duplicates(subset=['country', 'country_rank'])
     # sort the dataframe by ascending 'country'
     rankCountry = rankCountry.sort_values(by='country')
-    merged_df = rankCountry.merge(pivotTableData, on='country')
+    merged_df1 = rankCountry.merge(pivotTableData, on='country')
+
+
+    # Remove Duplicate Base on Multiple columns
+    powerBIDuplicates = powerBI[['country', 'country_group']]
+    rankCountry2 = powerBIDuplicates.drop_duplicates(subset=['country', 'country_group'])
+    # sort the dataframe by ascending 'country'
+    rankCountry2 = rankCountry2.sort_values(by='country')
+    merged_df = rankCountry2.merge(merged_df1, on='country')
+
+    # # Remove Duplicate Base on Multiple columns 'release_version'
+    # #
+    # # selected_attributes = ['Name', 'City']
+    # # # Creating a new DataFrame with selected attributes
+    # # new_df = df[selected_attributes]
+    # powerBIDuplicates = powerBI[['country', 'release_version']]
+    # releaseVersion = powerBIDuplicates.drop_duplicates(subset=['country', 'release_version'])
+    # # sort the dataframe by ascending 'country'
+    # releaseVersion = releaseVersion.sort_values(by='country')
+    # releaseVersionRanMerged_df = releaseVersion.merge(merged_df, on='country')
+
     # merged_df = merged_df.rename(columns={"country_rank": "rank"})
+
     pivotTableDataMergedDf = merged_df[
-        ['country', 'metric', 'country_rank', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP', 'Genesis-API', 'Orbis-API',
-         'Google-API', 'Here-API',
-         'Bing-API', 'Winner', 'Winner Score', 'Deviation Genesis', 'Deviation Orbis']]
+        ['country','ISO3_Country', 'metric', 'country_rank','country_group', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP', 'Genesis-API', 'Orbis-API',
+         'Google-API', 'Here-API','Bing-API', 'Winner', 'Winner Score', 'Deviation Genesis', 'Deviation Orbis']]
     # Dumping SearchMetrixPowerBIProviderPivotTable  to Local code
+
+
     return pivotTableDataMergedDf
 
 
@@ -208,7 +238,7 @@ AllSearchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrixALL(adxdf)
 # Export to Local
 # adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
 
-AllSearchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/ALlSearchMetrixPowerBIPivotTableRank.csv")
+# AllSearchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/ALlSearchMetrixPowerBIPivotTableRank.csv")
 
 # Convert the DataFrame to a CSV string
 pdDataFrameAdxdf = adxdf.to_csv(index=False)
@@ -292,6 +322,87 @@ def finalGetMaxWeekinYearPerCountry(adxdf: pd.DataFrame, Measurement: str, provi
 
 
 finalDataFrame = []
+
+
+# SHI MAP
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI').empty:
+    # GenesisMapAF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI').empty:
+    # GenesisMapSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI'))
+
+# SHI_order_1 MAP and Orbis
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_1').empty:
+    # GenesisMapAF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_1'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_1').empty:
+    # GenesisMapSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_1'))
+
+
+# SHI_order_2 MAP and Orbis
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_2').empty:
+    # GenesisMapAF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_2'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_2').empty:
+    # GenesisMapSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_2'))
+
+
+# SHI_order_3 MAP and Orbis
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_3').empty:
+    # GenesisMapAF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_3'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_3').empty:
+    # GenesisMapSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_3'))
+
+# SHI_order_4 MAP and Orbis
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_4').empty:
+    # GenesisMapAF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_4'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_4').empty:
+    # GenesisMapSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_4'))
+
+
+# SHI_order_5 MAP and Orbis
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_5').empty:
+    # GenesisMapAF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_5'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_5').empty:
+    # GenesisMapSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_5'))
+
+
+# SHI_order_country MAP and Orbis
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_oSHI_order_countryrder_5').empty:
+    # GenesisMapAF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_country'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_country').empty:
+    # GenesisMapSSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_country'))
+
+# Genesis MAP
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'LSF').empty:
+    # GenesisMapLSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'LSF'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'PSF').empty:
+    # GenesisMapPSF
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'PSF'))
+
+if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'APA').empty:
+    # GenesisMapAPA
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'APA'))
 
 # OSM MAP
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'OSM', 'ASF').empty:
@@ -451,20 +562,26 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Google', 'APA').empty:
 powerBI = pd.concat(finalDataFrame)
 
 # Dumping SearchMetrixPowerBIProvider to Local code
-# powerBI.to_csv("/Users/parande/Documents/2_KQL/SearchMetrixPowerBIProvider.csv")
+# powerBI.to_csv("/Users/parande/Documents/2_KQL/SearchMetrixPowerBIProviderXXXXXX.csv")
 # merged_df.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # piovt DataFrame
 
-# searchMetrixPowerBIProviderPiovt
+
+##############################################################################
+# Write data inti Azure Data Storage
+# Layer Name :# searchMetrixPowerBIProviderPiovt
+##############################################################################
 searchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrix(powerBI)
 
+pdDFpiovtSearchMetrixPowerBIProviderPowerBi = searchMetrixPowerBIProviderPiovt.to_csv(index=False)
 
+# uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str, pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
+
+# searchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # Azure Blob Storage Data Processing
 # Convert the DataFrame to a CSV string
 
-
 pdDataFrameAdxPowerBi = powerBI.to_csv(index=False)
-
 ##############################################################################
 # Write data inti Azure Data Storage
 # Layer Name :searchMetrixPowerBIProvider
