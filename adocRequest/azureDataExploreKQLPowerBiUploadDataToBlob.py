@@ -116,8 +116,6 @@ def piovtTableFunctionSearchMetrix(powerBI):
         ['country','ISO3_Country', 'metric', 'country_rank','country_group', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP', 'Genesis-API', 'Orbis-API',
          'Google-API', 'Here-API','Bing-API', 'Winner', 'Winner Score', 'Deviation Genesis', 'Deviation Orbis']]
     # Dumping SearchMetrixPowerBIProviderPivotTable  to Local code
-
-
     return pivotTableDataMergedDf
 
 
