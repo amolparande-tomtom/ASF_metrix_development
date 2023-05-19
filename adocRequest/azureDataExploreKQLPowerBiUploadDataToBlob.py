@@ -12,19 +12,20 @@ searchMetrixPowerBIProvider = "SearchMetrixPowerBIProvider.csv"
 
 SearchMetrixPowerBIProviderPivot = "SearchMetrixPowerBIProviderPivot.csv"
 
+
 def piovtTableFunctionSearchMetrixALL(powerBI):
     """
     :param powerBI: DatFrame
     :return: Pivote Table for Product Management
     """
-    pivot_table = powerBI[['country', 'release_version','metric', 'Measurement', 'provider_id', 'mean']]
+    pivot_table = powerBI[['country', 'release_version', 'metric', 'Measurement', 'provider_id', 'mean']]
     # concatenate two columns and create a new column
     pivot_table['provider_id_Measurement'] = pivot_table['provider_id'] + '-' + pivot_table['Measurement']
     # Pivot the data frame
-    pivotTableData = pd.pivot_table(pivot_table, values='mean', index=['country', 'metric','release_version'],
+    pivotTableData = pd.pivot_table(pivot_table, values='mean', index=['country', 'metric', 'release_version'],
                                     columns='provider_id_Measurement').reset_index()
     # identify columns with "_matchPer" suffix
-    match_cols = [col for col in pivotTableData.columns if col not in ('country', 'metric','release_version')]
+    match_cols = [col for col in pivotTableData.columns if col not in ('country', 'metric', 'release_version')]
     # create new column "HightMatch" or winner each Score and "Value_From Column"
     pivotTableData['Winner'] = pivotTableData[match_cols].max(axis=1)
     pivotTableData['Winner Score'] = pivotTableData[match_cols].idxmax(axis=1)
@@ -45,20 +46,23 @@ def piovtTableFunctionSearchMetrixALL(powerBI):
     merged_df = rankCountry.merge(pivotTableData, on='country')
     # merged_df = merged_df.rename(columns={"country_rank": "rank"})
     pivotTableDataMergedDf = merged_df[
-        ['country', 'metric', 'release_version','country_rank', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP', 'Genesis-API', 'Orbis-API',
+        ['country', 'metric', 'release_version', 'country_rank', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP', 'Genesis-API',
+         'Orbis-API',
          'Google-API', 'Here-API',
          'Bing-API', 'Winner', 'Winner Score', 'Deviation Genesis', 'Deviation Orbis']]
 
-    pivotTableDataMergedDf.sort_values(by=['release_version'],ascending= True)
+    pivotTableDataMergedDf.sort_values(by=['release_version'], ascending=True)
     # Dumping SearchMetrixPowerBIProviderPivotTable  to Local code
     return pivotTableDataMergedDf
+
 
 def piovtTableFunctionSearchMetrix(powerBI):
     """
     :param powerBI: DatFrame
     :return: Pivote Table for Product Management
     """
-    pivot_table = powerBI[['country', 'ISO3_Country','release_version','metric', 'Measurement', 'provider_id', 'mean']]
+    pivot_table = powerBI[
+        ['country', 'ISO3_Country', 'release_version', 'metric', 'Measurement', 'provider_id', 'mean']]
     # concatenate two columns and create a new column
     pivot_table['provider_id_Measurement'] = pivot_table['provider_id'] + '-' + pivot_table['Measurement']
     # # Create Copy
@@ -68,10 +72,10 @@ def piovtTableFunctionSearchMetrix(powerBI):
     # rankCountry = pivotTableProviderDuplicates.drop_duplicates(subset=['country', 'provider_id_Measurement','release_version'])
 
     # Pivot the DataFrame
-    pivotTableData = pd.pivot_table(pivot_table, values='mean', index=['country', 'ISO3_Country','metric'],
+    pivotTableData = pd.pivot_table(pivot_table, values='mean', index=['country', 'ISO3_Country', 'metric'],
                                     columns='provider_id_Measurement').reset_index()
     # identify columns with "_matchPer" suffix
-    match_cols = [col for col in pivotTableData.columns if col not in ('country', 'ISO3_Country','metric')]
+    match_cols = [col for col in pivotTableData.columns if col not in ('country', 'ISO3_Country', 'metric')]
     # create new column "HightMatch" or winner each Score and "Value_From Column"
     pivotTableData['Winner Score'] = pivotTableData[match_cols].max(axis=1)
     pivotTableData['Winner'] = pivotTableData[match_cols].idxmax(axis=1)
@@ -91,7 +95,6 @@ def piovtTableFunctionSearchMetrix(powerBI):
     rankCountry = rankCountry.sort_values(by='country')
     merged_df1 = rankCountry.merge(pivotTableData, on='country')
 
-
     # Remove Duplicate Base on Multiple columns
     powerBIDuplicates = powerBI[['country', 'country_group']]
     rankCountry2 = powerBIDuplicates.drop_duplicates(subset=['country', 'country_group'])
@@ -99,22 +102,10 @@ def piovtTableFunctionSearchMetrix(powerBI):
     rankCountry2 = rankCountry2.sort_values(by='country')
     merged_df = rankCountry2.merge(merged_df1, on='country')
 
-    # # Remove Duplicate Base on Multiple columns 'release_version'
-    # #
-    # # selected_attributes = ['Name', 'City']
-    # # # Creating a new DataFrame with selected attributes
-    # # new_df = df[selected_attributes]
-    # powerBIDuplicates = powerBI[['country', 'release_version']]
-    # releaseVersion = powerBIDuplicates.drop_duplicates(subset=['country', 'release_version'])
-    # # sort the dataframe by ascending 'country'
-    # releaseVersion = releaseVersion.sort_values(by='country')
-    # releaseVersionRanMerged_df = releaseVersion.merge(merged_df, on='country')
-
-    # merged_df = merged_df.rename(columns={"country_rank": "rank"})
-
     pivotTableDataMergedDf = merged_df[
-        ['country','ISO3_Country', 'metric', 'country_rank','country_group', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP', 'Genesis-API', 'Orbis-API',
-         'Google-API', 'Here-API','Bing-API', 'Winner', 'Winner Score', 'Deviation Genesis', 'Deviation Orbis']]
+        ['country', 'ISO3_Country', 'metric', 'country_rank', 'country_group', 'Genesis-MAP', 'Orbis-MAP', 'OSM-MAP',
+         'Genesis-API', 'Orbis-API',
+         'Google-API', 'Here-API', 'Bing-API', 'Winner', 'Winner Score', 'Deviation Genesis', 'Deviation Orbis']]
     # Dumping SearchMetrixPowerBIProviderPivotTable  to Local code
 
     return pivotTableDataMergedDf
@@ -213,6 +204,7 @@ connect_str = 'DefaultEndpointsProtocol=https;AccountName=metixreport;AccountKey
 
 #################################
 # Year List
+
 adxdf["Year"] = adxdf["matching_run_id"].str[:4]
 providerMask = adxdf["provider_id"] == 'Orbis'
 provideDF = adxdf[providerMask]
@@ -229,7 +221,6 @@ adxdf["Week"] = adxdf["Week"].str.zfill(2).astype(str)
 # Concatenation
 adxdf["Week Year"] = adxdf['Year'].astype(str) + ' ' + adxdf["Week"].astype(str)
 adxdf = adxdf.sort_values(['Year', 'Week'], ascending=[True, True])
-
 
 # AllSearchMetrixPowerBIProviderPiovt
 AllSearchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrixALL(adxdf)
@@ -322,7 +313,6 @@ def finalGetMaxWeekinYearPerCountry(adxdf: pd.DataFrame, Measurement: str, provi
 
 finalDataFrame = []
 
-
 # SHI MAP
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI').empty:
     # GenesisMapAF
@@ -341,7 +331,6 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_1').emp
     # GenesisMapSSF
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_1'))
 
-
 # SHI_order_2 MAP and Orbis
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_2').empty:
     # GenesisMapAF
@@ -350,7 +339,6 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_2').e
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_2').empty:
     # GenesisMapSSF
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_2'))
-
 
 # SHI_order_3 MAP and Orbis
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_3').empty:
@@ -370,7 +358,6 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_4').emp
     # GenesisMapSSF
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_4'))
 
-
 # SHI_order_5 MAP and Orbis
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_5').empty:
     # GenesisMapAF
@@ -379,7 +366,6 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_order_5').e
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_5').empty:
     # GenesisMapSSF
     finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SHI_order_5'))
-
 
 # SHI_order_country MAP and Orbis
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Genesis', 'SHI_oSHI_order_countryrder_5').empty:
@@ -570,17 +556,52 @@ powerBI = pd.concat(finalDataFrame)
 # Write data inti Azure Data Storage
 # Layer Name :# searchMetrixPowerBIProviderPiovt
 ##############################################################################
+
 searchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrix(powerBI)
+
+
+# Remove Duplicate Base on Multiple columns 'release_version'
+
+def addReleaseVersionColumn(ProviderID, AllDataFrame, ProviderPiovt):
+    pivot_table1 = AllDataFrame[['country', 'Measurement', 'provider_id', 'release_version']]
+    # concatenate two columns and create a new column
+    columnName = ProviderID + "_" + 'RV'
+    pivot_table1["ProviderName"] = pivot_table1['provider_id'] + '-' + pivot_table1['Measurement']
+    # Filter data
+    newDF = pivot_table1[pivot_table1["ProviderName"] == ProviderID]
+    pivot_table1 = newDF[['country', 'release_version']]
+    rankCountry = pivot_table1.drop_duplicates(subset=['country', ])
+    rankCountry.sort_values(by='country', inplace=True)
+    # rankCountry["rank"] = rankCountry.groupby("country")["release_version"].rank(method="dense", ascending=False)
+    # rankCountry.sort_values(by=['rank'], ascending=True, inplace=True)
+    rankCountry.rename(columns={'release_version': columnName}, inplace=True)
+    releaseVersionRanMerged_df = ProviderPiovt.merge(rankCountry, on='country', how='left')
+
+    return releaseVersionRanMerged_df
+
+
+# 'Genesis-MAP'
+
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Genesis-MAP', powerBI, searchMetrixPowerBIProviderPiovt)
+# 'Genesis-API'
+
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Genesis-API', powerBI, searchMetrixPowerBIProviderPiovt)
+
+# 'Orbis-MAP'
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Orbis-MAP', powerBI, searchMetrixPowerBIProviderPiovt)
+
+# 'Orbis-API'
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Orbis-API', powerBI, searchMetrixPowerBIProviderPiovt)
 
 pdDFpiovtSearchMetrixPowerBIProviderPowerBi = searchMetrixPowerBIProviderPiovt.to_csv(index=False)
 
-# uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str, pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
+uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str, pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
 
 # searchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # Azure Blob Storage Data Processing
 # Convert the DataFrame to a CSV string
 
-pdDataFrameAdxPowerBi = powerBI.to_csv(index=False)
+# pdDataFrameAdxPowerBi = powerBI.to_csv(index=False)
 ##############################################################################
 # Write data inti Azure Data Storage
 # Layer Name :searchMetrixPowerBIProvider
