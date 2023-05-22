@@ -9,9 +9,7 @@ import numpy as np
 path = "/Users/parande/Documents/2_KQL/csv"
 AllSearchMetrixPowerBIProvider = "AllSearchMetrixPowerBIProvider.csv"
 searchMetrixPowerBIProvider = "SearchMetrixPowerBIProvider.csv"
-
 SearchMetrixPowerBIProviderPivot = "SearchMetrixPowerBIProviderPivot.csv"
-
 
 def piovtTableFunctionSearchMetrixALL(powerBI):
     """
@@ -152,7 +150,6 @@ kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(clus
                                                                             authority_id)
 client = KustoClient(kcsb)
 db = "mapsanalyticsDB"
-
 query = "results_addressing"
 response = client.execute(db, query)
 
@@ -309,6 +306,31 @@ def finalGetMaxWeekinYearPerCountry(adxdf: pd.DataFrame, Measurement: str, provi
         # set the original DataFrame to the empty DataFrame
         df = empty_df
         return df
+
+
+def addReleaseVersionColumn(ProviderID, AllDataFrame, ProviderPiovt):
+    """
+    :param ProviderID: ProviderID
+    :param AllDataFrame: AllDataFrame Metix
+    :param ProviderPiovt:
+    :return:
+    """
+    pivot_table1 = AllDataFrame[['country', 'Measurement', 'provider_id', 'release_version']]
+    # concatenate two columns and create a new column
+    columnName = ProviderID + "_" + 'RV'
+    pivot_table1["ProviderName"] = pivot_table1['provider_id'] + '-' + pivot_table1['Measurement']
+    # Filter data
+    newDF = pivot_table1[pivot_table1["ProviderName"] == ProviderID]
+    pivot_table1 = newDF[['country', 'release_version']]
+    rankCountry = pivot_table1.drop_duplicates(subset=['country', ])
+    rankCountry.sort_values(by='country', inplace=True)
+    # rankCountry["rank"] = rankCountry.groupby("country")["release_version"].rank(method="dense", ascending=False)
+    # rankCountry.sort_values(by=['rank'], ascending=True, inplace=True)
+    rankCountry.rename(columns={'release_version': columnName}, inplace=True)
+    releaseVersionRanMerged_df = ProviderPiovt.merge(rankCountry, on='country', how='left')
+
+    return releaseVersionRanMerged_df
+
 
 
 finalDataFrame = []
@@ -562,24 +584,6 @@ searchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrix(powerBI)
 
 # Remove Duplicate Base on Multiple columns 'release_version'
 
-def addReleaseVersionColumn(ProviderID, AllDataFrame, ProviderPiovt):
-    pivot_table1 = AllDataFrame[['country', 'Measurement', 'provider_id', 'release_version']]
-    # concatenate two columns and create a new column
-    columnName = ProviderID + "_" + 'RV'
-    pivot_table1["ProviderName"] = pivot_table1['provider_id'] + '-' + pivot_table1['Measurement']
-    # Filter data
-    newDF = pivot_table1[pivot_table1["ProviderName"] == ProviderID]
-    pivot_table1 = newDF[['country', 'release_version']]
-    rankCountry = pivot_table1.drop_duplicates(subset=['country', ])
-    rankCountry.sort_values(by='country', inplace=True)
-    # rankCountry["rank"] = rankCountry.groupby("country")["release_version"].rank(method="dense", ascending=False)
-    # rankCountry.sort_values(by=['rank'], ascending=True, inplace=True)
-    rankCountry.rename(columns={'release_version': columnName}, inplace=True)
-    releaseVersionRanMerged_df = ProviderPiovt.merge(rankCountry, on='country', how='left')
-
-    return releaseVersionRanMerged_df
-
-
 # 'Genesis-MAP'
 
 searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Genesis-MAP', powerBI, searchMetrixPowerBIProviderPiovt)
@@ -592,6 +596,20 @@ searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Orbis-MAP', powerBI,
 
 # 'Orbis-API'
 searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Orbis-API', powerBI, searchMetrixPowerBIProviderPiovt)
+
+# 'OSM-MAP'
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('OSM-MAP', powerBI, searchMetrixPowerBIProviderPiovt)
+
+
+# 'Here-API'
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Here-API', powerBI, searchMetrixPowerBIProviderPiovt)
+
+# 'Bing-API'
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Bing-API', powerBI, searchMetrixPowerBIProviderPiovt)
+
+# 'Google-API'
+searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Google-API', powerBI, searchMetrixPowerBIProviderPiovt)
+
 
 pdDFpiovtSearchMetrixPowerBIProviderPowerBi = searchMetrixPowerBIProviderPiovt.to_csv(index=False)
 
