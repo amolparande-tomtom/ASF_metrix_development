@@ -11,6 +11,7 @@ AllSearchMetrixPowerBIProvider = "AllSearchMetrixPowerBIProvider.csv"
 searchMetrixPowerBIProvider = "SearchMetrixPowerBIProvider.csv"
 SearchMetrixPowerBIProviderPivot = "SearchMetrixPowerBIProviderPivot.csv"
 
+
 def piovtTableFunctionSearchMetrixALL(powerBI):
     """
     :param powerBI: DatFrame
@@ -222,8 +223,52 @@ adxdf = adxdf.sort_values(['Year', 'Week'], ascending=[True, True])
 # AllSearchMetrixPowerBIProviderPiovt
 AllSearchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrixALL(adxdf)
 
+#####################################################################
+########## Orbis Metrics - Trends Dashboards Preparation ############
+#####################################################################
+
+# Filter the DataFrame based on the column "provider_id" equal to "Orbis"
+filteredOrbis = adxdf[adxdf['provider_id'] == 'Orbis']
+# Filter the values ending with "OV"
+filtereOrbisVersion = filteredOrbis[filteredOrbis['release_version'].str.endswith('OV')]['release_version']
+
+# Remove "OV" from the filtered values and create a list
+result_list = filtereOrbisVersion.str.replace('OV', '').tolist()
+
+# Remove duplicates
+result_list = list(set(result_list))
+
+# Sort the list in ascending order
+result_list.sort()
+
+topSixRelease = result_list[-6:]
+
+# Filter DataFrame based on the last five records
+# Initialize an empty DataFrame to store the merged results
+mergedDF = pd.DataFrame()
+for ReleaseVersion in topSixRelease:
+    newReleaseVersion = ReleaseVersion + 'OV'
+    # Filter relative records only
+    orbisVersionFilter = filteredOrbis[filteredOrbis['release_version'] == newReleaseVersion]
+    # Select only required columns
+    selectedDF = orbisVersionFilter[['Alpha3_code', 'metric', 'mean']]
+    # Rename Columns
+    selectedDF.rename(columns={'mean': newReleaseVersion, 'Alpha3_code': 'country'}, inplace=True)
+    # Sort DataFrame by columns 'A' and 'B'
+    sortedDf = selectedDF.sort_values(by=['country', 'metric'])
+    # Perform the left join
+    if mergedDF.empty:
+        mergedDF = sortedDf
+    else:
+        mergedDF = mergedDF.merge(sortedDf, on=['country', 'metric'], how='left')
+
+# mergedDF will contain the merged DataFrame with all the renamed columns
+print(mergedDF)
+
+
 # Export to Local
 # adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
+
 
 # AllSearchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/ALlSearchMetrixPowerBIPivotTableRank.csv")
 
@@ -328,9 +373,7 @@ def addReleaseVersionColumn(ProviderID, AllDataFrame, ProviderPiovt):
     # rankCountry.sort_values(by=['rank'], ascending=True, inplace=True)
     rankCountry.rename(columns={'release_version': columnName}, inplace=True)
     releaseVersionRanMerged_df = ProviderPiovt.merge(rankCountry, on='country', how='left')
-
     return releaseVersionRanMerged_df
-
 
 
 finalDataFrame = []
@@ -574,13 +617,7 @@ powerBI = pd.concat(finalDataFrame)
 # piovt DataFrame
 
 
-##############################################################################
-# Write data inti Azure Data Storage
-# Layer Name :# searchMetrixPowerBIProviderPiovt
-##############################################################################
-
 searchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrix(powerBI)
-
 
 # Remove Duplicate Base on Multiple columns 'release_version'
 
@@ -600,7 +637,6 @@ searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Orbis-API', powerBI,
 # 'OSM-MAP'
 searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('OSM-MAP', powerBI, searchMetrixPowerBIProviderPiovt)
 
-
 # 'Here-API'
 searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Here-API', powerBI, searchMetrixPowerBIProviderPiovt)
 
@@ -610,14 +646,26 @@ searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Bing-API', powerBI, 
 # 'Google-API'
 searchMetrixPowerBIProviderPiovt = addReleaseVersionColumn('Google-API', powerBI, searchMetrixPowerBIProviderPiovt)
 
-
 pdDFpiovtSearchMetrixPowerBIProviderPowerBi = searchMetrixPowerBIProviderPiovt.to_csv(index=False)
 
-uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str, pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
+##############################################################################
+# Write data inti Azure Data Storage
+# Layer Name :SearchMetrixPowerBIProviderPivot
+##############################################################################
+
+# uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str,
+#                                           pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
 
 # searchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # Azure Blob Storage Data Processing
 # Convert the DataFrame to a CSV string
+
+for Release in topSixRelease:
+    print(Release)
+##############################################################################
+# Write data inti Azure Data Storage
+# Layer Name :SearchMetrixPowerBIProviderPivotOrbisMetricsTrends
+##############################################################################
 
 # pdDataFrameAdxPowerBi = powerBI.to_csv(index=False)
 ##############################################################################
