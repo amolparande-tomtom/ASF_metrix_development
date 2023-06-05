@@ -10,6 +10,7 @@ path = "/Users/parande/Documents/2_KQL/csv"
 AllSearchMetrixPowerBIProvider = "AllSearchMetrixPowerBIProvider.csv"
 searchMetrixPowerBIProvider = "SearchMetrixPowerBIProvider.csv"
 SearchMetrixPowerBIProviderPivot = "SearchMetrixPowerBIProviderPivot.csv"
+searchMetrixPowerBIProviderPiovtOrbisTrends = "searchMetrixPowerBIProviderPiovtOrbisTrends.csv"
 
 
 def piovtTableFunctionSearchMetrixALL(powerBI):
@@ -226,45 +227,53 @@ AllSearchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrixALL(adxdf)
 #####################################################################
 ########## Orbis Metrics - Trends Dashboards Preparation ############
 #####################################################################
+def OrbisMetricsTrendsLatestSixRelease(adxdf: pd.DataFrame):
+    """
+    :param adxdf: AllSearchMetrixPowerBIProviderPiovt
+    :return: Orbis Metrics Trends The Latest Six Release columns in DataFrame
+    """
+    global topSixRelease
+    # Filter the DataFrame based on the column "provider_id" equal to "Orbis" and column 'Measurement' equal to 'MAP'
+    filteredOrbis = adxdf[(adxdf['provider_id'] == 'Orbis') & (adxdf['Measurement'] == 'MAP')]
+    # Filter the values ending with "OV"
+    filtereOrbisVersion = filteredOrbis[filteredOrbis['release_version'].str.endswith('OV')]['release_version']
+    # Remove "OV" from the filtered values and create a list
+    result_list = filtereOrbisVersion.str.replace('OV', '').tolist()
+    # Remove duplicates
+    result_list = list(set(result_list))
+    # Sort the list in ascending order
+    result_list.sort()
+    topSixRelease = result_list[-6:]
+    # Filter DataFrame based on the last five records
+    # Initialize an empty DataFrame to store the merged results
+    mergedDF = pd.DataFrame()
+    for ReleaseVersion in topSixRelease:
+        newReleaseVersion = ReleaseVersion + 'OV'
+        # Filter relative records only
+        orbisVersionFilter = filteredOrbis[filteredOrbis['release_version'] == newReleaseVersion]
+        # Select only required columns
+        selectedDF = orbisVersionFilter[['Alpha3_code', 'metric', 'mean']]
+        # Rename Columns
+        selectedDF.rename(columns={'mean': newReleaseVersion, 'Alpha3_code': 'country'}, inplace=True)
+        # Sort DataFrame by columns 'A' and 'B'
+        sortedDf = selectedDF.sort_values(by=['country', 'metric'])
+        # Perform the left join
+        # if mergedDF id empty update sortedDf first
+        if mergedDF.empty:
+            mergedDF = sortedDf
+        # add columns for heights by columns
+        else:
+            mergedDF = mergedDF.merge(sortedDf, on=['country', 'metric'], how='left')
+    # mergedDF will contain the merged DataFrame with all the renamed columns
+    return mergedDF
 
-# Filter the DataFrame based on the column "provider_id" equal to "Orbis"
-filteredOrbis = adxdf[adxdf['provider_id'] == 'Orbis']
-# Filter the values ending with "OV"
-filtereOrbisVersion = filteredOrbis[filteredOrbis['release_version'].str.endswith('OV')]['release_version']
+def fillNullValuesWithZero(dataframe: pd.DataFrame) -> pd.DataFrame:
+    # Check if the DataFrame has any null values
+    if dataframe.isnull().any().any():
+        # Fill null values with 0
+        dataframe.fillna(0, inplace=True)
 
-# Remove "OV" from the filtered values and create a list
-result_list = filtereOrbisVersion.str.replace('OV', '').tolist()
-
-# Remove duplicates
-result_list = list(set(result_list))
-
-# Sort the list in ascending order
-result_list.sort()
-
-topSixRelease = result_list[-6:]
-
-# Filter DataFrame based on the last five records
-# Initialize an empty DataFrame to store the merged results
-mergedDF = pd.DataFrame()
-for ReleaseVersion in topSixRelease:
-    newReleaseVersion = ReleaseVersion + 'OV'
-    # Filter relative records only
-    orbisVersionFilter = filteredOrbis[filteredOrbis['release_version'] == newReleaseVersion]
-    # Select only required columns
-    selectedDF = orbisVersionFilter[['Alpha3_code', 'metric', 'mean']]
-    # Rename Columns
-    selectedDF.rename(columns={'mean': newReleaseVersion, 'Alpha3_code': 'country'}, inplace=True)
-    # Sort DataFrame by columns 'A' and 'B'
-    sortedDf = selectedDF.sort_values(by=['country', 'metric'])
-    # Perform the left join
-    if mergedDF.empty:
-        mergedDF = sortedDf
-    else:
-        mergedDF = mergedDF.merge(sortedDf, on=['country', 'metric'], how='left')
-
-# mergedDF will contain the merged DataFrame with all the renamed columns
-print(mergedDF)
-
+    return dataframe
 
 # Export to Local
 # adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
@@ -653,19 +662,55 @@ pdDFpiovtSearchMetrixPowerBIProviderPowerBi = searchMetrixPowerBIProviderPiovt.t
 # Layer Name :SearchMetrixPowerBIProviderPivot
 ##############################################################################
 
-# uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str,
-#                                           pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
+uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str,
+                                          pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
 
 # searchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # Azure Blob Storage Data Processing
 # Convert the DataFrame to a CSV string
 
-for Release in topSixRelease:
-    print(Release)
+#####################################################################
+########## Orbis Metrics - Trends Dashboards Preparation ############
+#####################################################################
+OrbisMetricxLatestSixRelease = OrbisMetricsTrendsLatestSixRelease(adxdf)
+searchMetrixPowerBIProviderPiovtCopy = searchMetrixPowerBIProviderPiovt.copy()
+
+# Create a list of column names in the desired order
+new_column_order = ['country', 'ISO3_Country', 'metric', 'country_rank', 'country_group',
+       'Genesis-MAP', 'Orbis-MAP', 'Genesis-API', 'Orbis-API',
+       'Google-API', 'Here-API', 'Bing-API', 'OSM-MAP', 'Winner', 'Winner Score',
+       'Deviation Genesis', 'Deviation Orbis', 'Genesis-MAP_RV',
+       'Genesis-API_RV', 'Orbis-MAP_RV', 'Orbis-API_RV', 'OSM-MAP_RV',
+       'Here-API_RV', 'Bing-API_RV', 'Google-API_RV']
+
+
+# # Rearrange the columns using the reindex() method
+searchMetrixPowerBIProviderPiovtCopy = searchMetrixPowerBIProviderPiovtCopy.reindex(columns=new_column_order)
+
+# merge with orignal DataFrame
+mergedDF = searchMetrixPowerBIProviderPiovtCopy.merge(OrbisMetricxLatestSixRelease, on=['country', 'metric'], how='left')
+columns_to_remove = ['country_group', 'Orbis-MAP', 'Genesis-API', 'Orbis-API', 'Winner', 'Winner Score',
+       'Deviation Genesis', 'Deviation Orbis', 'Genesis-MAP_RV',
+       'Genesis-API_RV', 'Orbis-MAP_RV', 'Orbis-API_RV', 'OSM-MAP_RV',
+       'Here-API_RV', 'Bing-API_RV', 'Google-API_RV']
+
+# Remove the unwanted columns using the drop() method
+mergedDFNew = mergedDF.drop(columns=columns_to_remove)
+
+fillNullValuesWithZeroNew = fillNullValuesWithZero(mergedDFNew)
+
 ##############################################################################
 # Write data inti Azure Data Storage
 # Layer Name :SearchMetrixPowerBIProviderPivotOrbisMetricsTrends
 ##############################################################################
+
+dfOrbisTrends = fillNullValuesWithZeroNew.to_csv(index=False)
+#
+uploadFileToAzureBlobAndRenameExistngFile(searchMetrixPowerBIProviderPiovtOrbisTrends, container_name, connect_str,
+                                          dfOrbisTrends)
+#
+# fillNullValuesWithZeroNew.to_csv("/Users/parande/Documents/2_KQL/PivotTable/searchMetrixPowerBIProviderPiovtOrbisTrends.csv")
+
 
 # pdDataFrameAdxPowerBi = powerBI.to_csv(index=False)
 ##############################################################################
