@@ -221,6 +221,9 @@ adxdf["Week"] = adxdf["Week"].str.zfill(2).astype(str)
 adxdf["Week Year"] = adxdf['Year'].astype(str) + ' ' + adxdf["Week"].astype(str)
 adxdf = adxdf.sort_values(['Year', 'Week'], ascending=[True, True])
 
+# Export to Local
+# adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
+
 # AllSearchMetrixPowerBIProviderPiovt
 AllSearchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrixALL(adxdf)
 
@@ -275,9 +278,6 @@ def fillNullValuesWithZero(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     return dataframe
 
-# Export to Local
-# adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
-
 
 # AllSearchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/ALlSearchMetrixPowerBIPivotTableRank.csv")
 
@@ -292,22 +292,6 @@ pdDataFrameAdxdf = adxdf.to_csv(index=False)
 
 # Writing "AllSearchMetrixPowerBIProvider"" file in to Azure Blob Storage
 # uploadFileToAzureBlobAndRenameExistngFile(AllSearchMetrixPowerBIProvider, container_name, connect_str, pdDataFrameAdxdf)
-
-
-# # A. Get Max Week in Year Per Country
-# providerIDYearWeek = adxdf[(adxdf.Measurement == 'API')
-#                            & (adxdf.Year == '2022')
-#                            & (adxdf.provider_id == 'OSM')
-#                            & (adxdf.metric == 'ASF')]
-#
-# grouped_df = providerIDYearWeek.groupby(['country', 'Measurement', 'metric', 'provider_id'])['country', 'Week'].max()
-#
-# grouped_df.reset_index(inplace=True, drop=True)
-#
-# # create a new dataframe with columns from df1 for common country and week
-# groupedDFNew = pd.merge(providerIDYearWeek, grouped_df, on=['country', 'Week'], how='inner')
-# # drop duplicate
-# groupedDFNew.drop_duplicates(subset=['Week', 'provider_id', 'country'], inplace=True)
 
 ############## Working Code ###############
 
@@ -621,10 +605,8 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Google', 'APA').empty:
 powerBI = pd.concat(finalDataFrame)
 
 # Dumping SearchMetrixPowerBIProvider to Local code
-# powerBI.to_csv("/Users/parande/Documents/2_KQL/SearchMetrixPowerBIProviderXXXXXX.csv")
 # merged_df.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # piovt DataFrame
-
 
 searchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrix(powerBI)
 
@@ -667,8 +649,8 @@ uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, cont
 
 # searchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # Azure Blob Storage Data Processing
-# Convert the DataFrame to a CSV string
 
+# Convert the DataFrame to a CSV string
 #####################################################################
 ########## Orbis Metrics - Trends Dashboards Preparation ############
 #####################################################################
@@ -684,8 +666,11 @@ new_column_order = ['country', 'ISO3_Country', 'metric', 'country_rank', 'countr
        'Here-API_RV', 'Bing-API_RV', 'Google-API_RV']
 
 
-# # Rearrange the columns using the reindex() method
+# Rearrange the columns using the reindex() method
 searchMetrixPowerBIProviderPiovtCopy = searchMetrixPowerBIProviderPiovtCopy.reindex(columns=new_column_order)
+
+# Replace 'GBL' with 'WORLDWIDE' in the 'country' column
+OrbisMetricxLatestSixRelease.loc[OrbisMetricxLatestSixRelease['country'] == 'GBL', 'country'] = 'WORLDWIDE'
 
 # merge with orignal DataFrame
 mergedDF = searchMetrixPowerBIProviderPiovtCopy.merge(OrbisMetricxLatestSixRelease, on=['country', 'metric'], how='left')
@@ -705,10 +690,11 @@ fillNullValuesWithZeroNew = fillNullValuesWithZero(mergedDFNew)
 ##############################################################################
 
 dfOrbisTrends = fillNullValuesWithZeroNew.to_csv(index=False)
-#
+
 uploadFileToAzureBlobAndRenameExistngFile(searchMetrixPowerBIProviderPiovtOrbisTrends, container_name, connect_str,
                                           dfOrbisTrends)
-#
+
+
 # fillNullValuesWithZeroNew.to_csv("/Users/parande/Documents/2_KQL/PivotTable/searchMetrixPowerBIProviderPiovtOrbisTrends.csv")
 
 
