@@ -538,13 +538,13 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'ASF').empty:
 
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SSF').empty:
     # OrbisMAPSSF
-    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'SSF'))
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'SSF'))
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'LSF').empty:
     # OrbisMAPLSF
-    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'LSF'))
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'LSF'))
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'PSF').empty:
     # OrbisMAPPSF
-    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Orbis', 'PSF'))
+    finalDataFrame.append(finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'PSF'))
 
 if not finalGetMaxWeekinYearPerCountry(adxdf, 'MAP', 'Orbis', 'APA').empty:
     # OrbisMAPAPA
@@ -604,8 +604,10 @@ if not finalGetMaxWeekinYearPerCountry(adxdf, 'API', 'Google', 'APA').empty:
 
 powerBI = pd.concat(finalDataFrame)
 
+
+##################################################################
 # Dumping SearchMetrixPowerBIProvider to Local code
-# merged_df.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
+powerBI.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIRank.csv")
 # piovt DataFrame
 
 searchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrix(powerBI)
@@ -647,7 +649,7 @@ pdDFpiovtSearchMetrixPowerBIProviderPowerBi = searchMetrixPowerBIProviderPiovt.t
 uploadFileToAzureBlobAndRenameExistngFile(SearchMetrixPowerBIProviderPivot, container_name, connect_str,
                                           pdDFpiovtSearchMetrixPowerBIProviderPowerBi)
 
-# searchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
+searchMetrixPowerBIProviderPiovt.to_csv("/Users/parande/Documents/2_KQL/PivotTable/SearchMetrixPowerBIPivotTableRank.csv")
 # Azure Blob Storage Data Processing
 
 # Convert the DataFrame to a CSV string
