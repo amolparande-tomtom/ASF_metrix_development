@@ -224,7 +224,7 @@ adxdf["Week Year"] = adxdf['Year'].astype(str) + ' ' + adxdf["Week"].astype(str)
 adxdf = adxdf.sort_values(['Year', 'Week'], ascending=[True, True])
 
 # Export to Local
-# adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
+adxdf.to_csv("/Users/parande/Documents/2_KQL/AllSearchMetrixPowerBIProvider.csv")
 
 # AllSearchMetrixPowerBIProviderPiovt
 AllSearchMetrixPowerBIProviderPiovt = piovtTableFunctionSearchMetrixALL(adxdf)
